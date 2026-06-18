@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scratch Count Shell</title>
+<link rel="icon" type="image/png" href="lotto.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #19191f;
+    --surface2: #222229;
+    --border: #2e2e38;
+    --accent: #f0c040;
+    --text: #e8e8ec;
+    --text-dim: #6e6e80;
+    --text-muted: #3e3e50;
+    --green: #3ecf8e;
+    --red: #f06060;
+    --blue: #60a8f0;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --sidebar-w: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* SIDEBAR OVERLAY */
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+    backdrop-filter: blur(2px);
+  }
+  .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed;
+    top: 0; right: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: #13131a;
+    border-left: 1px solid var(--border);
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -8px 0 48px rgba(0,0,0,0.6);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 18px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .sidebar-close {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: background 0.2s, color 0.2s;
+  }
+  .sidebar-close:hover { background: var(--border); color: var(--text); }
+
+  .sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+    transition: background 0.15s;
+    border: 1px solid transparent;
+    user-select: none;
+  }
+  .sidebar-item:hover { background: var(--surface2); }
+  .sidebar-item svg { color: var(--text-dim); flex-shrink: 0; }
+  .sidebar-item.danger { color: var(--red); }
+  .sidebar-item.danger svg { color: var(--red); }
+  .sidebar-item.danger:hover { background: rgba(240,96,96,0.08); border-color: rgba(240,96,96,0.15); }
+
+  .draft-badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: #0f0f11;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 20px;
+    padding: 2px 7px;
+    min-width: 20px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .draft-badge.zero { background: var(--surface2); color: var(--text-dim); }
+
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* DRAFTS PANEL */
+  .drafts-panel {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .drafts-panel.open { display: flex; }
+
+  .drafts-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 4px 6px;
+  }
+  .drafts-back {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .drafts-back:hover { background: var(--surface2); color: var(--text); }
+
+  .draft-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 12px 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .draft-card:hover { border-color: rgba(240,192,64,0.35); background: var(--surface2); }
+  .draft-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .draft-card-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    flex: 1;
+  }
+  .draft-card-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 5px;
+    letter-spacing: 0.01em;
+  }
+
+  .draft-dots {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 5px;
+    cursor: pointer;
+    color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .draft-dots:hover { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+  .draft-popover {
+    position: absolute;
+    right: 10px; top: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    z-index: 10;
+    min-width: 155px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    overflow: hidden;
+    animation: fadeSlide 0.15s ease forwards;
+  }
+  .draft-popover-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 9px;
+    transition: background 0.12s;
+    color: var(--text);
+  }
+  .draft-popover-item:hover { background: var(--surface2); }
+  .draft-popover-item.delete { color: var(--red); }
+  .draft-popover-item.delete:hover { background: rgba(240,96,96,0.08); }
+
+  .draft-confirm {
+    background: rgba(240,96,96,0.07);
+    border: 1px solid rgba(240,96,96,0.22);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeSlide 0.18s ease forwards;
+  }
+  .draft-confirm-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .draft-confirm-name {
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+  .draft-confirm-btns {
+    display: flex;
+    gap: 8px;
+  }
+  .confirm-yes {
+    flex: 1;
+    padding: 9px;
+    background: var(--red);
+    border: none;
+    border-radius: 7px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .confirm-yes:hover { opacity: 0.85; }
+  .confirm-no {
+    flex: 1;
+    padding: 9px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .confirm-no:hover { background: var(--border); }
+
+  .drafts-empty {
+    text-align: center;
+    padding: 28px 0 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(15,15,17,0.94);
+    backdrop-filter: blur(16px);
+    z-index: 100;
+  }
+
+  .app-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .menu-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    width: 38px; height: 38px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 5px; cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .menu-btn:hover { background: var(--border); }
+  .menu-btn span {
+    width: 16px; height: 1.5px;
+    background: var(--text);
+    border-radius: 2px;
+    display: block;
+  }
+
+  /* PILL SWITCHER */
+  .switcher-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 22px 0 16px;
+  }
+
+  .pill-switcher {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    display: flex;
+    padding: 4px;
+  }
+
+  .pill-track {
+    position: absolute;
+    top: 4px; left: 4px;
+    height: calc(100% - 8px);
+    background: var(--accent);
+    border-radius: 36px;
+    transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 0;
+  }
+
+  .pill-btn {
+    position: relative; z-index: 1;
+    padding: 9px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 36px;
+    transition: color 0.2s;
+    white-space: nowrap;
+  }
+  .pill-btn.active { color: #0f0f11; }
+
+  /* MAIN CONTENT */
+  .content {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 8px 14px 60px;
+  }
+
+  .view { display: none; animation: fadeSlide 0.25s ease forwards; }
+  .view.active { display: block; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    padding-left: 2px;
+  }
+
+  .ticket-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .ticket-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 8px 10px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .ticket-tile:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(240,192,64,0.12);
+  }
+
+  .tile-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+  }
+
+  .tile-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--text);
+    text-align: center;
+    letter-spacing: 0.01em;
+    padding: 0;
+    line-height: 1.1;
+  }
+  .tile-input::placeholder { color: var(--text-muted); font-size: 24px; }
+  .tile-input::-webkit-inner-spin-button,
+  .tile-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  /* TOTAL VIEW */
+  .total-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  .total-list { margin-bottom: 24px; }
+
+  .total-row {
+    display: flex;
+    align-items: baseline;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .total-row:last-child { border-bottom: none; }
+
+  .t-denom {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--accent);
+    width: 52px;
+    flex-shrink: 0;
+  }
+  .t-colon {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    color: var(--text-dim);
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  .t-eq {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    color: var(--text);
+    flex: 1;
+    letter-spacing: 0.02em;
+  }
+  .t-eq .op { color: var(--text-dim); margin: 0 5px; }
+  .t-eq .eq { color: var(--text-dim); margin: 0 5px; }
+  .t-eq .result { color: var(--green); font-weight: 500; }
+
+  /* SOLD VIEW */
+  .sold-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-left: 2px;
+  }
+  .sold-section-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .sold-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .sold-tile-prev {
+    background: var(--surface);
+    border: 1px solid rgba(96,168,240,0.3);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 8px 9px;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .sold-tile-prev:focus-within {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(96,168,240,0.12);
+  }
+  .sold-tile-prev .tile-label { color: var(--blue); font-size: 11px; margin-bottom: 6px; }
+  .sold-tile-prev .tile-input { font-size: 24px; }
+
+  .sold-tile-curr {
+    background: var(--surface);
+    border: 1px solid rgba(62,207,142,0.25);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 8px 9px;
+    position: relative;
+    opacity: 0.85;
+  }
+  .sold-tile-curr .tile-label { color: var(--green); font-size: 11px; margin-bottom: 6px; }
+  .sold-tile-curr .tile-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 24px;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  .sold-tile-sold {
+    background: var(--surface);
+    border: 1px solid rgba(62,207,142,0.3);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 8px 9px;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .sold-tile-sold:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(62,207,142,0.12);
+  }
+  .sold-tile-sold .tile-label { color: var(--green); font-size: 11px; margin-bottom: 6px; }
+  .sold-tile-sold .tile-input { font-size: 24px; }
+
+  .sold-separator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 18px;
+  }
+  .sold-separator-line { flex: 1; height: 1px; background: var(--border); }
+  .sold-separator-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* SAVE AS DRAFT BUTTON */
+  .draft-btn {
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    color: var(--blue);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid rgba(96,168,240,0.4);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .draft-btn:hover { background: rgba(96,168,240,0.08); border-color: var(--blue); }
+  .draft-btn:active { transform: scale(0.98); }
+
+  /* CALCULATE BUTTON */
+  .calc-btn {
+    width: 100%;
+    padding: 15px;
+    background: transparent;
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 10px;
+    margin-bottom: 16px;
+  }
+  .calc-btn:hover { background: rgba(240,192,64,0.1); }
+  .calc-btn:active { transform: scale(0.98); }
+
+  /* RESULT CONTAINER */
+  .result-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: none;
+    animation: fadeSlide 0.25s ease forwards;
+  }
+  .result-container.visible { display: block; }
+
+  .result-header {
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .result-header-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .result-rows { padding: 6px 0; }
+
+  .result-row {
+    display: flex;
+    align-items: baseline;
+    padding: 8px 18px;
+    border-bottom: 1px solid rgba(46,46,56,0.6);
+  }
+  .result-row:last-child { border-bottom: none; }
+
+  .r-denom {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    width: 44px;
+    flex-shrink: 0;
+  }
+  .r-colon {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    color: var(--text-dim);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .r-eq {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    color: var(--text);
+    flex: 1;
+    letter-spacing: 0.01em;
+  }
+  .r-eq .op  { color: var(--text-dim); margin: 0 4px; }
+  .r-eq .eq  { color: var(--text-dim); margin: 0 4px; }
+  .r-eq .sold-amt { color: var(--green); font-weight: 500; }
+  .r-eq .sold-zero { color: var(--text-muted); }
+
+  .result-total-bar {
+    padding: 14px 18px;
+    background: rgba(240,192,64,0.07);
+    border-top: 1px solid rgba(240,192,64,0.2);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .rt-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .rt-amount {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  /* DOWNLOAD BUTTON */
+  .download-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    color: #0f0f11;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .download-btn:hover { opacity: 0.88; }
+  .download-btn:active { transform: scale(0.98); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap;
+    z-index: 500;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title">Menu</div>
+    <div class="sidebar-close" onclick="closeSidebar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </div>
+  </div>
+
+  <div class="sidebar-body" id="sidebarBody">
+
+    <!-- Main menu -->
+    <div id="sidebarMainMenu">
+      <div class="sidebar-item" onclick="openDraftsPanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        View your Drafts
+        <span class="draft-badge zero" id="sidebarDraftCount">0</span>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-item" id="modeToggleItem" onclick="toggleAltMode()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <span id="modeToggleLabel">Prev. Shift - Current Sold - Calc.</span>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-item danger" onclick="clearAllFromSidebar()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.57"/></svg>
+        Clear All
+      </div>
+    </div>
+
+    <!-- Drafts panel -->
+    <div class="drafts-panel" id="draftsPanel">
+      <div class="drafts-panel-header">
+        <button class="drafts-back" onclick="closeDraftsPanel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+      </div>
+      <div id="draftsListContainer"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="app-title">Scratch&nbsp;Counter</div>
+  <div class="menu-btn" id="menuBtn" onclick="openSidebar()">
+    <span></span><span></span><span></span>
+  </div>
+</div>
+
+<!-- PILL SWITCHER -->
+<div class="switcher-wrap" id="switcherWrap">
+  <div class="pill-switcher" id="switcher">
+    <div class="pill-track" id="pillTrack"></div>
+    <button class="pill-btn active" data-view="inside"   onclick="switchView('inside', this)">Inside</button>
+    <button class="pill-btn"        data-view="outside"  onclick="switchView('outside', this)">Outside</button>
+    <button class="pill-btn"        data-view="total"    onclick="switchView('total', this)">Total</button>
+    <button class="pill-btn"        data-view="sold"     onclick="switchView('sold', this)">Sold</button>
+  </div>
+</div>
+
+<!-- PILL SWITCHER (CURRENT VS PREVIOUS MODE) -->
+<div class="switcher-wrap" id="switcherWrapAlt" style="display:none;">
+  <div class="pill-switcher" id="switcherAlt">
+    <div class="pill-track" id="pillTrackAlt"></div>
+    <button class="pill-btn" data-altview="altprev" onclick="switchAltView('altprev', this)">Previous Total</button>
+    <button class="pill-btn" data-altview="altsold" onclick="switchAltView('altsold', this)">Current Sold</button>
+    <button class="pill-btn" data-altview="altcalc" onclick="switchAltView('altcalc', this)">Calculation</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- INSIDE -->
+  <div class="view active" id="view-inside">
+    <div class="section-label">Inside Tickets</div>
+    <div class="ticket-grid" id="grid-inside"></div>
+    <button class="draft-btn" style="margin-top:18px;" onclick="saveAsDraft()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save as Draft
+    </button>
+  </div>
+
+  <!-- OUTSIDE -->
+  <div class="view" id="view-outside">
+    <div class="section-label">Outside Tickets</div>
+    <div class="ticket-grid" id="grid-outside"></div>
+    <button class="draft-btn" style="margin-top:18px;" onclick="saveAsDraft()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save as Draft
+    </button>
+  </div>
+
+  <!-- TOTAL -->
+  <div class="view" id="view-total">
+    <div class="total-title">Scratch Total</div>
+    <div class="total-list" id="total-list"></div>
+    <button class="download-btn" onclick="downloadPDF()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download PDF
+    </button>
+  </div>
+
+  <!-- SOLD -->
+  <div class="view" id="view-sold">
+
+    <!-- Previous Shift -->
+    <div class="sold-section-header">
+      <div class="sold-section-badge">Previous Shift — End Count</div>
+    </div>
+    <div class="sold-grid" id="grid-prev"></div>
+
+    <!-- Separator -->
+    <div class="sold-separator">
+      <div class="sold-separator-line"></div>
+      <div class="sold-separator-label">Current Shift Count (from Total)</div>
+      <div class="sold-separator-line"></div>
+    </div>
+
+    <!-- Current Shift read-only -->
+    <div class="sold-grid" id="grid-curr"></div>
+
+    <!-- Save as Draft (above Calculate) -->
+    <button class="draft-btn" onclick="saveAsDraft()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save as Draft
+    </button>
+
+    <!-- Calculate -->
+    <button class="calc-btn" onclick="calculateSold()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+      Calculate Sold
+    </button>
+
+    <!-- Result Container -->
+    <div class="result-container" id="sold-result">
+      <div class="result-header">
+        <div class="result-header-label">Scratch Sales This Shift</div>
+      </div>
+      <div class="result-rows" id="sold-result-rows"></div>
+      <div class="result-total-bar">
+        <div class="rt-label">Total Sold</div>
+        <div class="rt-amount" id="sold-total-amount">$0</div>
+      </div>
+    </div>
+
+    <!-- Download Scratch Report -->
+    <button class="download-btn" style="margin-top:18px;" onclick="downloadScratchReport()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download Scratch Report
+    </button>
+
+  </div>
+
+  <!-- ALT: PREVIOUS SHIFT COUNT -->
+  <div class="view" id="view-altprev">
+    <div class="section-label">Previous Shift Count</div>
+    <div class="sold-grid" id="grid-altprev"></div>
+    <button class="draft-btn" style="margin-top:18px;" onclick="saveAsDraft()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save as Draft
+    </button>
+  </div>
+
+  <!-- ALT: CURRENT SHIFT SOLD -->
+  <div class="view" id="view-altsold">
+    <div class="section-label">Current Shift Sold</div>
+    <div class="sold-grid" id="grid-altsold"></div>
+    <button class="draft-btn" style="margin-top:18px;" onclick="saveAsDraft()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save as Draft
+    </button>
+  </div>
+
+  <!-- ALT: CALCULATION -->
+  <div class="view" id="view-altcalc">
+    <div class="section-label">Calculation</div>
+
+    <div class="result-container visible" id="altcalc-result" style="margin-bottom:16px;">
+      <div class="result-header">
+        <div class="result-header-label">Scratch Sales This Shift</div>
+      </div>
+      <div class="result-rows" id="altcalc-result-rows"></div>
+      <div class="result-total-bar">
+        <div class="rt-label">Total Sold</div>
+        <div class="rt-amount" id="altcalc-total-amount">$0</div>
+      </div>
+    </div>
+
+    <button class="draft-btn" onclick="saveAsDraft()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save as Draft
+    </button>
+
+    <button class="download-btn" onclick="downloadScratchReportAlt()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download Scratch Report
+    </button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DENOMS = [2, 3, 4, 5, 10, 20, 30, 50, 100];
+const MAX_DRAFTS = 6;
+const DRAFTS_KEY = 'scratch_drafts_v1';
+
+// ── DRAFT STORAGE ──
+function loadDrafts() {
+  try {
+    const raw = localStorage.getItem(DRAFTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveDraftsToStorage(drafts) {
+  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+}
+
+function getDraftName(now) {
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const ddmm = dd + mo;
+  const drafts = loadDrafts();
+  const todayDrafts = drafts.filter(d => d.ddmm === ddmm);
+  // Use max stored sequence number + 1 so n keeps incrementing even after
+  // old drafts are evicted by the FIFO cap. Falls back to 1 on a fresh date.
+  const maxN = todayDrafts.reduce((m, d) => Math.max(m, d.n || 0), 0);
+  const n = maxN + 1;
+  return { name: 'Scratch-Draft-' + ddmm + '-' + n, ddmm, n };
+}
+
+function collectDraftData() {
+  const data = { inside: {}, outside: {}, prev: {}, curr: {}, altPrev: {}, altSold: {} };
+  DENOMS.forEach(d => {
+    data.inside[d]   = getVal('inside-' + d);
+    data.outside[d]  = getVal('outside-' + d);
+    data.prev[d]     = getVal('prev-' + d);
+    data.curr[d]     = getDisplayVal('curr-' + d);
+    data.altPrev[d]  = getVal('altprev-' + d);
+    data.altSold[d]  = getVal('altsold-' + d);
+  });
+  // store totals and sold calculations
+  data.totals   = {};
+  data.soldCalc = {};
+  data.altCalc  = {};
+  let grandTotal = 0;
+  let altGrandTotal = 0;
+  DENOMS.forEach(d => {
+    data.totals[d] = data.inside[d] + data.outside[d];
+    const soldQty = data.prev[d] - data.curr[d];
+    const soldAmt = soldQty > 0 ? soldQty * d : 0;
+    data.soldCalc[d] = { qty: soldQty, amt: soldAmt };
+    grandTotal += soldAmt;
+
+    const altCurr = data.altPrev[d] - data.altSold[d];
+    const altAmt  = data.altSold[d] > 0 ? data.altSold[d] * d : 0;
+    data.altCalc[d] = { curr: altCurr, qty: data.altSold[d], amt: altAmt };
+    altGrandTotal += altAmt;
+  });
+  data.grandSoldTotal = grandTotal;
+  data.altGrandSoldTotal = altGrandTotal;
+  return data;
+}
+
+function saveAsDraft() {
+  const now = new Date();
+  const { name, ddmm, n } = getDraftName(now);
+  const draftData = collectDraftData();
+
+  const draft = {
+    id: Date.now(),
+    name,
+    ddmm,
+    n,
+    mode: altModeActive ? 'alt' : 'main',
+    savedAt: now.toISOString(),
+    data: draftData,
+  };
+
+  let drafts = loadDrafts();
+  // FIFO: remove oldest if at max
+  if (drafts.length >= MAX_DRAFTS) {
+    drafts.shift();
+  }
+  drafts.push(draft);
+  saveDraftsToStorage(drafts);
+  updateDraftBadge();
+  showToast('Saved: ' + name);
+}
+
+function updateDraftBadge() {
+  const currentMode = altModeActive ? 'alt' : 'main';
+  const count = loadDrafts().filter(d => (d.mode || 'main') === currentMode).length;
+  const badge = document.getElementById('sidebarDraftCount');
+  if (badge) {
+    badge.textContent = count;
+    badge.className = 'draft-badge' + (count === 0 ? ' zero' : '');
+  }
+}
+
+function loadDraftIntoForm(draft) {
+  const d = draft.data;
+  DENOMS.forEach(denom => {
+    const inEl  = document.getElementById('inside-'  + denom);
+    const outEl = document.getElementById('outside-' + denom);
+    const prEl  = document.getElementById('prev-'    + denom);
+    const aprEl = document.getElementById('altprev-' + denom);
+    const aslEl = document.getElementById('altsold-' + denom);
+    if (inEl)  inEl.value  = d.inside[denom]  || '';
+    if (outEl) outEl.value = d.outside[denom] || '';
+    if (prEl)  prEl.value  = d.prev[denom]    || '';
+    if (aprEl) aprEl.value = (d.altPrev && d.altPrev[denom]) || '';
+    if (aslEl) aslEl.value = (d.altSold && d.altSold[denom]) || '';
+  });
+  renderTotal();
+  refreshCurrCounts();
+  calculateAltSold();
+  document.getElementById('sold-result').classList.remove('visible');
+  closeSidebar();
+  showToast('Loaded: ' + draft.name);
+}
+
+function deleteDraftById(id) {
+  let drafts = loadDrafts();
+  drafts = drafts.filter(d => d.id !== id);
+  saveDraftsToStorage(drafts);
+  updateDraftBadge();
+}
+
+// ── SIDEBAR ──
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+  closeDraftsPanel();
+  updateDraftBadge();
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  document.querySelectorAll('.draft-popover').forEach(p => p.remove());
+  closeDraftsPanel();
+}
+
+function openDraftsPanel() {
+  document.getElementById('sidebarMainMenu').style.display = 'none';
+  document.getElementById('draftsPanel').classList.add('open');
+  renderDraftsList();
+}
+
+function closeDraftsPanel() {
+  document.getElementById('sidebarMainMenu').style.display = '';
+  document.getElementById('draftsPanel').classList.remove('open');
+}
+
+// ── RENDER DRAFTS LIST ──
+function renderDraftsList() {
+  const container = document.getElementById('draftsListContainer');
+  const currentMode = altModeActive ? 'alt' : 'main';
+  const drafts = loadDrafts().filter(d => (d.mode || 'main') === currentMode);
+
+  if (drafts.length === 0) {
+    container.innerHTML = '<div class="drafts-empty">No drafts saved yet.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  const sorted = [...drafts].reverse(); // newest first
+
+  sorted.forEach(draft => {
+    const card = document.createElement('div');
+    card.className = 'draft-card';
+    card.id = 'draft-card-' + draft.id;
+
+    const savedAt = new Date(draft.savedAt);
+    const dateStr = savedAt.toLocaleDateString('en-CA', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = savedAt.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    card.innerHTML =
+      '<div class="draft-card-top">' +
+        '<div class="draft-card-name">' + draft.name + '</div>' +
+        '<button class="draft-dots" onclick="toggleDraftPopover(event,' + draft.id + ')" title="Options">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+            '<circle cx="12" cy="5" r="1.2" fill="currentColor" stroke="none"/>' +
+            '<circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>' +
+            '<circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/>' +
+          '</svg>' +
+        '</button>' +
+      '</div>' +
+      '<div class="draft-card-meta">' + dateStr + ' &middot; ' + timeStr + '</div>';
+
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('.draft-dots') || e.target.closest('.draft-popover')) return;
+      loadDraftIntoForm(draft);
+    });
+
+    container.appendChild(card);
+  });
+}
+
+function toggleDraftPopover(e, draftId) {
+  e.stopPropagation();
+
+  // close existing
+  document.querySelectorAll('.draft-popover').forEach(p => p.remove());
+
+  const card = document.getElementById('draft-card-' + draftId);
+  if (!card) return;
+
+  const pop = document.createElement('div');
+  pop.className = 'draft-popover';
+  pop.id = 'popover-' + draftId;
+  pop.innerHTML =
+    '<div class="draft-popover-item" onclick="loadFromPopover(' + draftId + ')">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
+      'Load this draft' +
+    '</div>' +
+    '<div class="draft-popover-item delete" onclick="confirmDeleteDraft(' + draftId + ')">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>' +
+      'Delete this draft' +
+    '</div>';
+
+  card.appendChild(pop);
+
+  setTimeout(function() {
+    document.addEventListener('click', function handler(ev) {
+      if (!ev.target.closest('.draft-popover') && !ev.target.closest('.draft-dots')) {
+        pop.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 0);
+}
+
+function loadFromPopover(draftId) {
+  const draft = loadDrafts().find(d => d.id === draftId);
+  if (draft) loadDraftIntoForm(draft);
+}
+
+function confirmDeleteDraft(draftId) {
+  document.querySelectorAll('.draft-popover').forEach(p => p.remove());
+
+  const drafts = loadDrafts();
+  const draft  = drafts.find(d => d.id === draftId);
+  if (!draft) return;
+
+  const card = document.getElementById('draft-card-' + draftId);
+  if (!card) return;
+
+  const confirm = document.createElement('div');
+  confirm.className = 'draft-confirm';
+  confirm.innerHTML =
+    '<div class="draft-confirm-text">' +
+      'Delete <span class="draft-confirm-name">' + draft.name + '</span>?<br>This cannot be undone.' +
+    '</div>' +
+    '<div class="draft-confirm-btns">' +
+      '<button class="confirm-yes" onclick="executeDeleteDraft(' + draftId + ')">Yes, delete</button>' +
+      '<button class="confirm-no" onclick="renderDraftsList()">Cancel</button>' +
+    '</div>';
+
+  card.replaceWith(confirm);
+}
+
+function executeDeleteDraft(draftId) {
+  deleteDraftById(draftId);
+  renderDraftsList();
+}
+
+function clearAllFromSidebar() {
+  clearAll();
+  closeSidebar();
+}
+
+// ── BUILD GRIDS ──
+function buildGrid(containerId, side) {
+  const container = document.getElementById(containerId);
+  DENOMS.forEach(d => {
+    const tile = document.createElement('div');
+    tile.className = 'ticket-tile';
+    tile.innerHTML =
+      '<div class="tile-label">$' + d + '</div>' +
+      '<input class="tile-input" type="number" min="0" step="1" placeholder="0" id="' + side + '-' + d + '" oninput="this.value = this.value.replace(/[^0-9]/g,\'\')" inputmode="numeric"/>';
+    container.appendChild(tile);
+  });
+}
+buildGrid('grid-inside', 'inside');
+buildGrid('grid-outside', 'outside');
+
+function buildPrevGrid() {
+  const container = document.getElementById('grid-prev');
+  DENOMS.forEach(d => {
+    const tile = document.createElement('div');
+    tile.className = 'sold-tile-prev';
+    tile.innerHTML =
+      '<div class="tile-label">$' + d + '</div>' +
+      '<input class="tile-input" type="number" min="0" step="1" placeholder="0" id="prev-' + d + '" oninput="this.value = this.value.replace(/[^0-9]/g,\'\')" inputmode="numeric"/>';
+    container.appendChild(tile);
+  });
+}
+buildPrevGrid();
+
+function buildCurrGrid() {
+  const container = document.getElementById('grid-curr');
+  DENOMS.forEach(d => {
+    const tile = document.createElement('div');
+    tile.className = 'sold-tile-curr';
+    tile.innerHTML =
+      '<div class="tile-label">$' + d + '</div>' +
+      '<div class="tile-value" id="curr-' + d + '">0</div>';
+    container.appendChild(tile);
+  });
+}
+buildCurrGrid();
+
+// ── ALT MODE (CURRENT VS PREVIOUS): BUILD GRIDS ──
+function buildAltGrid(containerId, idPrefix, tileClass) {
+  const container = document.getElementById(containerId);
+  DENOMS.forEach(d => {
+    const tile = document.createElement('div');
+    tile.className = tileClass;
+    tile.innerHTML =
+      '<div class="tile-label">$' + d + '</div>' +
+      '<input class="tile-input" type="number" min="0" step="1" placeholder="0" id="' + idPrefix + '-' + d + '" oninput="this.value = this.value.replace(/[^0-9]/g,\'\')" inputmode="numeric"/>';
+    container.appendChild(tile);
+  });
+}
+buildAltGrid('grid-altprev', 'altprev', 'sold-tile-prev');
+buildAltGrid('grid-altsold', 'altsold', 'sold-tile-sold');
+
+// ── PILL SWITCHER ──
+function positionPillIn(switcherId, trackId, btn) {
+  const switcher = document.getElementById(switcherId);
+  const track    = document.getElementById(trackId);
+  const swRect   = switcher.getBoundingClientRect();
+  const btnRect  = btn.getBoundingClientRect();
+  track.style.left  = (btnRect.left - swRect.left + 4) + 'px';
+  track.style.width = btn.offsetWidth + 'px';
+}
+
+window.addEventListener('load', function() {
+  const savedMode = localStorage.getItem(MODE_KEY);
+  if (savedMode === 'alt') {
+    applyMode(true, { silent: true });
+  } else {
+    positionPillIn('switcher', 'pillTrack', document.querySelector('#switcher .pill-btn.active'));
+  }
+  updateDraftBadge();
+});
+
+function switchView(view, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('#switcher .pill-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  btn.classList.add('active');
+  positionPillIn('switcher', 'pillTrack', btn);
+  if (view === 'total') renderTotal();
+  if (view === 'sold')  refreshCurrCounts();
+}
+
+// ── ALT MODE: PILL SWITCHER ──
+function switchAltView(view, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('#switcherAlt .pill-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  btn.classList.add('active');
+  positionPillIn('switcherAlt', 'pillTrackAlt', btn);
+  if (view === 'altcalc') calculateAltSold();
+}
+
+// ── ALT MODE: TOGGLE BETWEEN ORIGINAL 4-PILL AND CURRENT VS PREVIOUS 3-PILL LAYOUT ──
+let altModeActive = false;
+const MODE_KEY = 'scratch_mode_v1';
+
+function applyMode(toAlt, opts) {
+  opts = opts || {};
+  altModeActive = toAlt;
+
+  document.getElementById('switcherWrap').style.display    = altModeActive ? 'none' : 'flex';
+  document.getElementById('switcherWrapAlt').style.display = altModeActive ? 'flex' : 'none';
+
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+  if (altModeActive) {
+    document.querySelectorAll('#switcherAlt .pill-btn').forEach(b => b.classList.remove('active'));
+    const firstBtn = document.querySelector('#switcherAlt .pill-btn');
+    firstBtn.classList.add('active');
+    document.getElementById('view-altprev').classList.add('active');
+    positionPillIn('switcherAlt', 'pillTrackAlt', firstBtn);
+    document.getElementById('modeToggleLabel').textContent = 'In - Out - Sold - Calc.';
+    if (!opts.silent) showToast('Switched to: Prev. Shift - Current Sold - Calc.');
+  } else {
+    document.querySelectorAll('#switcher .pill-btn').forEach(b => b.classList.remove('active'));
+    const firstBtn = document.querySelector('#switcher .pill-btn');
+    firstBtn.classList.add('active');
+    document.getElementById('view-inside').classList.add('active');
+    positionPillIn('switcher', 'pillTrack', firstBtn);
+    document.getElementById('modeToggleLabel').textContent = 'Prev. Shift - Current Sold - Calc.';
+    if (!opts.silent) showToast('Switched to: In - Out - Sold - Calc.');
+  }
+
+  localStorage.setItem(MODE_KEY, altModeActive ? 'alt' : 'main');
+
+  if (!opts.silent) closeSidebar();
+}
+
+function toggleAltMode() {
+  applyMode(!altModeActive);
+}
+
+// ── CLEAR ALL ──
+function clearAll() {
+  DENOMS.forEach(d => {
+    ['inside','outside','prev','altprev','altsold'].forEach(side => {
+      const el = document.getElementById(side + '-' + d);
+      if (el) el.value = '';
+    });
+  });
+  document.getElementById('sold-result').classList.remove('visible');
+  showToast('All fields cleared');
+  renderTotal();
+  refreshCurrCounts();
+  calculateAltSold();
+}
+
+// ── HELPERS ──
+function getVal(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const v = parseInt(el.value, 10);
+  return isNaN(v) ? 0 : v;
+}
+
+function getDisplayVal(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const v = parseInt(el.textContent, 10);
+  return isNaN(v) ? 0 : v;
+}
+
+// ── TOTAL ──
+function renderTotal() {
+  const list = document.getElementById('total-list');
+  list.innerHTML = '';
+  DENOMS.forEach(d => {
+    const ins = getVal('inside-' + d);
+    const out = getVal('outside-' + d);
+    const sum = ins + out;
+    const row = document.createElement('div');
+    row.className = 'total-row';
+    row.innerHTML =
+      '<div class="t-denom">$' + d + '</div>' +
+      '<div class="t-colon">:</div>' +
+      '<div class="t-eq">' +
+        '<span>' + ins + '</span>' +
+        '<span class="op">+</span>' +
+        '<span>' + out + '</span>' +
+        '<span class="eq">=</span>' +
+        '<span class="result">' + sum + '</span>' +
+      '</div>';
+    list.appendChild(row);
+  });
+}
+
+// ── REFRESH CURRENT COUNTS ──
+function refreshCurrCounts() {
+  DENOMS.forEach(d => {
+    const ins = getVal('inside-' + d);
+    const out = getVal('outside-' + d);
+    const el  = document.getElementById('curr-' + d);
+    if (el) el.textContent = ins + out;
+  });
+}
+
+// ── CALCULATE SOLD ──
+function calculateSold() {
+  refreshCurrCounts();
+  const rows = document.getElementById('sold-result-rows');
+  rows.innerHTML = '';
+  let grandTotal = 0;
+
+  DENOMS.forEach(d => {
+    const prev = getVal('prev-' + d);
+    const curr = getDisplayVal('curr-' + d);
+    const sold = prev - curr;
+    const amt  = sold * d;
+    const row  = document.createElement('div');
+    row.className = 'result-row';
+
+    if (sold > 0) {
+      grandTotal += amt;
+      row.innerHTML =
+        '<div class="r-denom">$' + d + '</div>' +
+        '<div class="r-colon">:</div>' +
+        '<div class="r-eq">' +
+          '<span>(' + prev + '<span class="op">&#8722;</span>' + curr + ')</span>' +
+          '<span class="op">&times;</span>' +
+          '<span>$' + d + '</span>' +
+          '<span class="eq">=</span>' +
+          '<span class="sold-amt">$' + amt + '</span>' +
+        '</div>';
+    } else if (sold < 0) {
+      row.innerHTML =
+        '<div class="r-denom">$' + d + '</div>' +
+        '<div class="r-colon">:</div>' +
+        '<div class="r-eq"><span class="sold-zero">(' + prev + '<span class="op">&#8722;</span>' + curr + ') &rarr; restocked</span></div>';
+    } else {
+      row.innerHTML =
+        '<div class="r-denom">$' + d + '</div>' +
+        '<div class="r-colon">:</div>' +
+        '<div class="r-eq"><span class="sold-zero">&#8212;</span></div>';
+    }
+    rows.appendChild(row);
+  });
+
+  document.getElementById('sold-total-amount').textContent = '$' + grandTotal;
+  const rc = document.getElementById('sold-result');
+  rc.classList.add('visible');
+  rc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── ALT MODE: CALCULATE SOLD (Current vs Previous) ──
+function calculateAltSold() {
+  const rows = document.getElementById('altcalc-result-rows');
+  if (!rows) return;
+  rows.innerHTML = '';
+  let grandTotal = 0;
+
+  DENOMS.forEach(d => {
+    const prev = getVal('altprev-' + d);
+    const sold = getVal('altsold-' + d);
+    const curr = prev - sold;
+    const amt  = sold * d;
+    const row  = document.createElement('div');
+    row.className = 'result-row';
+
+    if (sold > 0) {
+      grandTotal += amt;
+      row.innerHTML =
+        '<div class="r-denom">$' + d + '</div>' +
+        '<div class="r-colon">:</div>' +
+        '<div class="r-eq">' +
+          '<span>(' + prev + '<span class="op">&#8722;</span>' + curr + ')</span>' +
+          '<span class="op">&times;</span>' +
+          '<span>$' + d + '</span>' +
+          '<span class="eq">=</span>' +
+          '<span class="sold-amt">$' + amt + '</span>' +
+        '</div>';
+    } else {
+      row.innerHTML =
+        '<div class="r-denom">$' + d + '</div>' +
+        '<div class="r-colon">:</div>' +
+        '<div class="r-eq"><span class="sold-zero">&#8212;</span></div>';
+    }
+    rows.appendChild(row);
+  });
+
+  document.getElementById('altcalc-total-amount').textContent = '$' + grandTotal;
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+// ── PDF DATE HELPER ──
+function getPDFDateParts() {
+  const now = new Date();
+  return {
+    hh:   String(now.getHours()).padStart(2,'0'),
+    mm:   String(now.getMinutes()).padStart(2,'0'),
+    ss:   String(now.getSeconds()).padStart(2,'0'),
+    dd:   String(now.getDate()).padStart(2,'0'),
+    mo:   String(now.getMonth()+1).padStart(2,'0'),
+    yyyy: String(now.getFullYear()),
+  };
+}
+
+// ── PDF: TOTAL SCRATCH COUNT ──
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc  = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const M = 56;
+  let y = 64;
+
+  doc.setFillColor(255,255,255);
+  doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
+
+  const { hh, mm, ss, dd, mo, yyyy } = getPDFDateParts();
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(26); doc.setTextColor(20,20,20);
+  doc.text('Total Scratch Count', M, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(90,90,90);
+  doc.text(hh+':'+mm+':'+ss, pageW-M, y-10, { align:'right' });
+  doc.text(dd+'/'+mo+'/'+yyyy, pageW-M, y+5, { align:'right' });
+
+  y += 20;
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.5);
+  doc.line(M, y, pageW-M, y);
+  y += 28;
+
+  const C = { ticketL:M, insideR:M+180, outsideR:M+275, totalR:M+360 };
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(140,140,140);
+  doc.text('Ticket', C.ticketL, y);
+  doc.text('Inside',  C.insideR,  y, { align:'right' });
+  doc.text('Outside', C.outsideR, y, { align:'right' });
+  doc.text('Total',   C.totalR,   y, { align:'right' });
+  y += 5;
+  doc.setDrawColor(220,220,220);
+  doc.line(M, y, C.totalR+10, y);
+  y += 22;
+
+  DENOMS.forEach((d,i) => {
+    const ins = getVal('inside-'+d), out = getVal('outside-'+d), sum = ins+out;
+    if (i%2===0) { doc.setFillColor(248,248,248); doc.rect(M-4, y-14, C.totalR-M+18, 22, 'F'); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+    doc.text('$'+d, C.ticketL, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(15); doc.setTextColor(50,50,50);
+    doc.text(String(ins), C.insideR,  y, { align:'right' });
+    doc.setTextColor(160,160,160); doc.setFontSize(13); doc.text('+', C.insideR+10, y);
+    doc.setTextColor(50,50,50); doc.setFontSize(15);
+    doc.text(String(out), C.outsideR, y, { align:'right' });
+    doc.setTextColor(160,160,160); doc.setFontSize(13); doc.text('=', C.outsideR+10, y);
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+    doc.text(String(sum), C.totalR, y, { align:'right' });
+    y += 26;
+  });
+
+  doc.save('total-scratch-count-'+yyyy+mo+dd+'-'+hh+mm+ss+'.pdf');
+  showToast('PDF downloaded');
+}
+
+// ── PDF: SCRATCH REPORT ──
+function downloadScratchReport() {
+  const { jsPDF } = window.jspdf;
+  const doc  = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const M = 52;
+  let y = 64;
+
+  doc.setFillColor(255,255,255);
+  doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
+
+  const { hh, mm, ss, dd, mo, yyyy } = getPDFDateParts();
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(26); doc.setTextColor(20,20,20);
+  doc.text('Scratch Report', M, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(90,90,90);
+  doc.text(hh+':'+mm+':'+ss, pageW-M, y-10, { align:'right' });
+  doc.text(dd+'/'+mo+'/'+yyyy, pageW-M, y+5, { align:'right' });
+
+  y += 20;
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.5);
+  doc.line(M, y, pageW-M, y);
+  y += 28;
+
+  const C = { ticketL:M, prevR:M+155, currR:M+245, soldR:M+320, amtR:M+410 };
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(130,130,130);
+  doc.text('Ticket',      C.ticketL, y);
+  doc.text('Prev. Shift', C.prevR,   y, { align:'right' });
+  doc.text('This Shift',  C.currR,   y, { align:'right' });
+  doc.text('Sold',        C.soldR,   y, { align:'right' });
+  doc.text('Amount',      C.amtR,    y, { align:'right' });
+  y += 5;
+  doc.setDrawColor(215,215,215); doc.setLineWidth(0.5);
+  doc.line(M, y, C.amtR+10, y);
+  y += 22;
+
+  let grandSoldAmt = 0;
+
+  DENOMS.forEach((d,i) => {
+    const prev = getVal('prev-'+d);
+    const curr = getVal('inside-'+d) + getVal('outside-'+d);
+    const soldQty = prev - curr;
+    const soldAmt = soldQty > 0 ? soldQty*d : 0;
+    grandSoldAmt += soldAmt;
+
+    if (i%2===0) { doc.setFillColor(248,248,248); doc.rect(M-4, y-14, C.amtR-M+18, 22, 'F'); }
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+    doc.text('$'+d, C.ticketL, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(15);
+    doc.setTextColor(55,95,155); doc.text(String(prev), C.prevR, y, { align:'right' });
+    doc.setTextColor(35,130,80); doc.text(String(curr), C.currR, y, { align:'right' });
+
+    if (soldQty > 0) {
+      doc.setTextColor(30,30,30); doc.text(String(soldQty), C.soldR, y, { align:'right' });
+      doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+      doc.text('$'+soldAmt, C.amtR, y, { align:'right' });
+    } else if (soldQty < 0) {
+      doc.setTextColor(180,180,180); doc.setFontSize(12);
+      doc.text('restocked', C.soldR, y, { align:'right' });
+      doc.text('—', C.amtR, y, { align:'right' });
+    } else {
+      doc.setTextColor(200,200,200); doc.setFontSize(15);
+      doc.text('—', C.soldR, y, { align:'right' });
+      doc.text('—', C.amtR, y, { align:'right' });
+    }
+    y += 26;
+  });
+
+  doc.setDrawColor(160,160,160); doc.setLineWidth(0.8);
+  doc.line(M, y-2, C.amtR+10, y-2);
+  y += 12;
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(30,30,30);
+  doc.text('TOTAL SOLD', C.ticketL, y);
+  doc.setFontSize(16); doc.setTextColor(20,20,20);
+  doc.text('$'+grandSoldAmt, C.amtR, y, { align:'right' });
+
+  doc.save('scratch-report-'+yyyy+mo+dd+'-'+hh+mm+ss+'.pdf');
+  showToast('Scratch Report downloaded');
+}
+
+// ── PDF: SCRATCH REPORT (ALT MODE — CURRENT VS PREVIOUS) ──
+function downloadScratchReportAlt() {
+  const { jsPDF } = window.jspdf;
+  const doc  = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const M = 52;
+  let y = 64;
+
+  doc.setFillColor(255,255,255);
+  doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
+
+  const { hh, mm, ss, dd, mo, yyyy } = getPDFDateParts();
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(26); doc.setTextColor(20,20,20);
+  doc.text('Scratch Report', M, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(90,90,90);
+  doc.text(hh+':'+mm+':'+ss, pageW-M, y-10, { align:'right' });
+  doc.text(dd+'/'+mo+'/'+yyyy, pageW-M, y+5, { align:'right' });
+
+  y += 20;
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.5);
+  doc.line(M, y, pageW-M, y);
+  y += 28;
+
+  const C = { ticketL:M, prevR:M+155, currR:M+245, soldR:M+320, amtR:M+410 };
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(130,130,130);
+  doc.text('Ticket',      C.ticketL, y);
+  doc.text('Prev. Shift', C.prevR,   y, { align:'right' });
+  doc.text('This Shift',  C.currR,   y, { align:'right' });
+  doc.text('Sold',        C.soldR,   y, { align:'right' });
+  doc.text('Amount',      C.amtR,    y, { align:'right' });
+  y += 5;
+  doc.setDrawColor(215,215,215); doc.setLineWidth(0.5);
+  doc.line(M, y, C.amtR+10, y);
+  y += 22;
+
+  let grandSoldAmt = 0;
+
+  DENOMS.forEach((d,i) => {
+    const prev = getVal('altprev-'+d);
+    const soldQty = getVal('altsold-'+d);
+    const curr = prev - soldQty;
+    const soldAmt = soldQty > 0 ? soldQty*d : 0;
+    grandSoldAmt += soldAmt;
+
+    if (i%2===0) { doc.setFillColor(248,248,248); doc.rect(M-4, y-14, C.amtR-M+18, 22, 'F'); }
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+    doc.text('$'+d, C.ticketL, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(15);
+    doc.setTextColor(55,95,155); doc.text(String(prev), C.prevR, y, { align:'right' });
+    doc.setTextColor(35,130,80); doc.text(String(curr), C.currR, y, { align:'right' });
+
+    if (soldQty > 0) {
+      doc.setTextColor(30,30,30); doc.text(String(soldQty), C.soldR, y, { align:'right' });
+      doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,20,20);
+      doc.text('$'+soldAmt, C.amtR, y, { align:'right' });
+    } else {
+      doc.setTextColor(200,200,200); doc.setFontSize(15);
+      doc.text('—', C.soldR, y, { align:'right' });
+      doc.text('—', C.amtR, y, { align:'right' });
+    }
+    y += 26;
+  });
+
+  doc.setDrawColor(160,160,160); doc.setLineWidth(0.8);
+  doc.line(M, y-2, C.amtR+10, y-2);
+  y += 12;
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(30,30,30);
+  doc.text('TOTAL SOLD', C.ticketL, y);
+  doc.setFontSize(16); doc.setTextColor(20,20,20);
+  doc.text('$'+grandSoldAmt, C.amtR, y, { align:'right' });
+
+  doc.save('scratch-report-'+yyyy+mo+dd+'-'+hh+mm+ss+'.pdf');
+  showToast('Scratch Report downloaded');
+}
+</script>
+</body>
+</html>
