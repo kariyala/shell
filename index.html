@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shell Apps</title>
+<link rel="icon" type="image/png" href="letter-s.png">
+<style>
+  :root{
+    --bg-1:#0a0c10;
+    --bg-2:#11151c;
+    --bg-3:#1a1f29;
+    --tile-bg-top:#1c212b;
+    --tile-bg-bottom:#12151c;
+    --border-dark:#2b3140;
+    --border-darker:#000000;
+    --text-main:#e7e9ed;
+    --text-sub:#8b93a3;
+    --shadow-soft: rgba(0,0,0,0.55);
+  }
+
+  *{
+    box-sizing:border-box;
+  }
+
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 10%, #1b2230 0%, transparent 45%),
+      radial-gradient(circle at 85% 0%, #20283a 0%, transparent 40%),
+      radial-gradient(circle at 50% 100%, #161b24 0%, transparent 55%),
+      linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
+    color:var(--text-main);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:48px 24px 64px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:40px;
+  }
+
+  header h1{
+    margin:0;
+    font-size:2.4rem;
+    font-weight:800;
+    letter-spacing:0.5px;
+    line-height:1;
+    background:linear-gradient(95deg, #ffd76a 0%, #ffb74a 35%, #ff7a3d 65%, #ff5b3d 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    color:transparent;
+    filter:drop-shadow(0 2px 10px rgba(255,122,61,0.18));
+  }
+
+  header .accent-bar{
+    width:46px;
+    height:4px;
+    margin:14px auto 0;
+    border-radius:4px;
+    background:linear-gradient(90deg, #ffd76a, #ff5b3d);
+    opacity:0.85;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(72px, 110px));
+    gap:28px 22px;
+    width:100%;
+    max-width:560px;
+  }
+
+  @media (max-width:480px){
+    .grid{
+      grid-template-columns:repeat(4, minmax(60px, 1fr));
+      gap:22px 14px;
+    }
+  }
+
+  .app{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+  }
+
+  .icon-wrap{
+    width:100%;
+    aspect-ratio:1/1;
+    border-radius:28%;
+    background:linear-gradient(155deg, var(--tile-bg-top) 0%, var(--tile-bg-bottom) 100%);
+    border:1.5px solid var(--border-dark);
+    box-shadow:
+      0 8px 16px var(--shadow-soft),
+      inset 0 1px 0 rgba(255,255,255,0.03);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    transition:transform 0.18s cubic-bezier(.2,.8,.2,1),
+               box-shadow 0.18s ease,
+               border-color 0.18s ease;
+    position:relative;
+  }
+
+  .icon-wrap img{
+    width:62%;
+    height:62%;
+    object-fit:contain;
+    pointer-events:none;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+  }
+
+  .app span{
+    margin-top:10px;
+    font-size:0.78rem;
+    color:var(--text-sub);
+    font-weight:500;
+    text-align:center;
+    letter-spacing:0.2px;
+  }
+
+  /* hover */
+  .app:hover .icon-wrap{
+    transform:translateY(-4px) scale(1.04);
+    border-color:#3a4254;
+    box-shadow:
+      0 14px 22px var(--shadow-soft),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .app:hover span{
+    color:var(--text-main);
+  }
+
+  /* press / click - inset pressed-in effect */
+  .app:active .icon-wrap{
+    transform:translateY(0) scale(0.92);
+    box-shadow:
+      inset 0 4px 10px rgba(0,0,0,0.65),
+      inset 0 -2px 4px rgba(0,0,0,0.4);
+    border-color:var(--border-darker);
+    transition:transform 0.08s ease, box-shadow 0.08s ease;
+  }
+
+
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>Shell Apps</h1>
+    <div class="accent-bar"></div>
+  </header>
+
+  <div class="grid">
+
+    <a class="app" href="https://kariyala.github.io/shell/cash/" target="_blank" rel="noopener noreferrer">
+      <div class="icon-wrap">
+        <img src="https://kariyala.github.io/shell/cash/dollar.png" alt="Cash">
+      </div>
+      <span>Cash</span>
+    </a>
+
+    <a class="app" href="https://kariyala.github.io/shell/smokes/" target="_blank" rel="noopener noreferrer">
+      <div class="icon-wrap">
+        <img src="https://kariyala.github.io/shell/smokes/tobacco.png" alt="Smokes">
+      </div>
+      <span>Smokes</span>
+    </a>
+
+    <a class="app" href="https://kariyala.github.io/shell/scratch/" target="_blank" rel="noopener noreferrer">
+      <div class="icon-wrap">
+        <img src="https://kariyala.github.io/shell/scratch/lotto.png" alt="Scratch">
+      </div>
+      <span>Scratch</span>
+    </a>
+
+    <a class="app" href="https://kariyala.github.io/shell/gas/" target="_blank" rel="noopener noreferrer">
+      <div class="icon-wrap">
+        <img src="https://kariyala.github.io/shell/gas/gas-pump.png" alt="Gas in Ltrs">
+      </div>
+      <span>Gas in Ltrs</span>
+    </a>
+
+  </div>
+
+</body>
+</html>
