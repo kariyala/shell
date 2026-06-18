@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gas Price-Litres</title>
+<link rel="icon" type="image/png" href="gas-pump.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e10;
+    --surface: #1a1a1e;
+    --surface2: #222228;
+    --border: #2e2e36;
+    --accent: #c8ff00;
+    --text: #f0f0f0;
+    --muted: #5a5a6a;
+    --muted2: #3a3a46;
+    --font-display: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 50;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  /* Sidebar — slides in from the RIGHT (same side as hamburger) */
+  .sidebar {
+    position: fixed;
+    top: 0; right: 0; height: 100%;
+    width: 290px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 22px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sb-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .sb-close {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .sb-close:hover { background: var(--muted2); }
+
+  .sb-body {
+    padding: 24px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    flex: 1;
+  }
+
+  .sb-section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .price-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .price-wrap:focus-within { border-color: var(--accent); }
+  .price-sym {
+    padding: 0 12px;
+    font-size: 16px;
+    color: var(--accent);
+    font-weight: 500;
+    background: var(--muted2);
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid var(--border);
+    font-family: var(--font-display);
+  }
+  .price-input {
+    background: none;
+    border: none;
+    outline: none;
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+    padding: 12px 14px;
+    flex: 1;
+    min-width: 0;
+  }
+  .price-input::placeholder { color: var(--muted); }
+  .price-per-l {
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .mode-options { display: flex; flex-direction: column; gap: 8px; }
+  .mode-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .mode-btn:hover { background: var(--surface2); color: var(--text); }
+  .mode-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(200,255,0,0.06);
+  }
+  .mode-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .mode-btn.active .mode-dot { background: var(--accent); }
+
+  .clear-btn {
+    margin-top: auto;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s;
+  }
+  .clear-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--muted); }
+
+  /* Main card */
+  .card {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 36px 32px 32px;
+    width: 100%;
+    max-width: 400px;
+    position: relative;
+  }
+
+  /* Hamburger — top right */
+  .hamburger {
+    position: absolute;
+    top: 28px; right: 28px;
+    width: 46px; height: 46px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .hamburger:hover { background: var(--muted2); border-color: var(--muted); }
+  .hamburger span {
+    display: block;
+    width: 20px; height: 2px;
+    background: var(--text);
+    border-radius: 2px;
+  }
+
+  /* Title — DM Sans, clean, smaller */
+  .title {
+    font-family: var(--font-display);
+    font-size: 32px;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-bottom: 32px;
+  }
+  .title-white { color: var(--text); display: block; }
+  .title-accent { color: var(--accent); display: block; }
+
+  /* Fields */
+  .field { margin-bottom: 14px; }
+
+  /* Labels — larger, cleaner */
+  .field-label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .field-input-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field-input-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200,255,0,0.08);
+  }
+  .field-prefix {
+    font-size: 20px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-right: 4px;
+    min-width: 14px;
+  }
+  .field-input {
+    background: none;
+    border: none;
+    outline: none;
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text);
+    padding: 18px 0;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
+  .field-input::placeholder { color: var(--muted2); }
+  .field-suffix {
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+
+  /* Thin divider — no arrow */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0 16px;
+  }
+
+  /* Result — label outside top-left, value centered inside box */
+  .result-label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .result-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 82px;
+    transition: border-color 0.3s;
+  }
+  .result-wrap.has-result { border-color: var(--accent); }
+
+  .result-value {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--accent);
+    text-align: center;
+    transition: all 0.25s ease;
+  }
+  .result-value.empty {
+    font-size: 22px;
+    color: var(--muted2);
+  }
+
+  /* Hint */
+  .hint-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .hint-dot { width: 4px; height: 4px; background: var(--accent); border-radius: 50%; }
+  .hint-val { color: var(--accent); font-weight: 500; }
+
+  @keyframes pop {
+    0% { transform: scale(0.94); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .pop { animation: pop 0.22s cubic-bezier(.34,1.56,.64,1) both; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .slide-up { animation: slideUp 0.28s ease both; }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<div class="sidebar" id="sidebar">
+  <div class="sb-header">
+    <span class="sb-title">Settings</span>
+    <button class="sb-close" onclick="closeSidebar()" aria-label="Close">✕</button>
+  </div>
+  <div class="sb-body">
+    <div>
+      <div class="sb-section-label">Gas price per litre</div>
+      <div class="price-wrap">
+        <span class="price-sym">$</span>
+        <input class="price-input" type="number" id="priceInput" step="0.001" min="0.001" placeholder="0.000" oninput="savePrice(); updateHint(); autoCalc();" />
+        <span class="price-per-l">/ L</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="sb-section-label">Conversion mode</div>
+      <div class="mode-options">
+        <button class="mode-btn active" id="btn-a2l" onclick="setMode('a2l')">
+          <span class="mode-dot"></span>
+          Dollar amount → Litres
+        </button>
+        <button class="mode-btn" id="btn-l2a" onclick="setMode('l2a')">
+          <span class="mode-dot"></span>
+          Litres → Dollar amount
+        </button>
+      </div>
+    </div>
+
+    <button class="clear-btn" onclick="clearAll()">✕ &nbsp; Clear all inputs</button>
+  </div>
+</div>
+
+<div class="card">
+  <button class="hamburger" onclick="openSidebar()" aria-label="Open settings">
+    <span></span><span></span><span></span>
+  </button>
+
+  <h1 class="title">
+    <span class="title-white" id="titleLine1">Gas</span>
+    <span class="title-accent" id="titleLine2">Converter</span>
+  </h1>
+
+  <div class="field">
+    <div class="field-label" id="inputLabel">Amount</div>
+    <div class="field-input-wrap">
+      <span class="field-prefix" id="inputPrefix">$</span>
+      <input class="field-input" type="number" id="mainInput" placeholder="0.00" min="0" step="0.01" oninput="autoCalc()" />
+      <span class="field-suffix" id="inputSuffix">CAD</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="result-label" id="resultLabel">Gas in Litres</div>
+  <div class="result-wrap" id="resultWrap">
+    <span class="result-value empty" id="resultVal">—</span>
+  </div>
+
+  <div class="hint-row">
+    <span class="hint-dot"></span>
+    <span>Rate:</span>
+    <span class="hint-val" id="hintVal">$1.789 / L</span>
+  </div>
+</div>
+
+<script>
+let mode = 'a2l';
+
+function savePrice() {
+  const val = document.getElementById('priceInput').value;
+  if (val && parseFloat(val) > 0) localStorage.setItem('gasPricePerLitre', val);
+}
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-a2l').classList.toggle('active', m === 'a2l');
+  document.getElementById('btn-l2a').classList.toggle('active', m === 'l2a');
+  document.getElementById('mainInput').value = '';
+  resetResult();
+
+  if (m === 'a2l') {
+    document.getElementById('titleLine1').textContent = 'Gas';
+    document.getElementById('titleLine2').textContent = 'Converter';
+    document.getElementById('inputLabel').textContent = 'Amount';
+    document.getElementById('inputPrefix').textContent = '$';
+    document.getElementById('inputSuffix').textContent = 'CAD';
+    document.getElementById('resultLabel').textContent = 'Gas in Litres';
+  } else {
+    document.getElementById('titleLine1').textContent = 'Litres';
+    document.getElementById('titleLine2').textContent = 'to Amount';
+    document.getElementById('inputLabel').textContent = 'Litres';
+    document.getElementById('inputPrefix').textContent = '';
+    document.getElementById('inputSuffix').textContent = 'L';
+    document.getElementById('resultLabel').textContent = 'Amount';
+  }
+
+  document.querySelector('.card').classList.add('slide-up');
+  setTimeout(() => document.querySelector('.card').classList.remove('slide-up'), 300);
+  closeSidebar();
+}
+
+function resetResult() {
+  const rv = document.getElementById('resultVal');
+  const rw = document.getElementById('resultWrap');
+  rv.textContent = '—';
+  rv.classList.add('empty');
+  rw.classList.remove('has-result');
+}
+
+function calculate() {
+  const price = parseFloat(document.getElementById('priceInput').value);
+  const val = parseFloat(document.getElementById('mainInput').value);
+  const rv = document.getElementById('resultVal');
+  const rw = document.getElementById('resultWrap');
+
+  if (isNaN(price) || price <= 0 || isNaN(val) || val <= 0) {
+    resetResult();
+    return;
+  }
+
+  let result;
+  if (mode === 'a2l') {
+    result = (val / price).toFixed(2) + ' L';
+  } else {
+    result = '$ ' + (val * price).toFixed(2);
+  }
+
+  rv.textContent = result;
+  rv.classList.remove('empty');
+  rw.classList.add('has-result');
+  rv.classList.add('pop');
+  setTimeout(() => rv.classList.remove('pop'), 250);
+}
+
+function autoCalc() {
+  const val = document.getElementById('mainInput').value;
+  if (val && parseFloat(val) > 0) calculate();
+  else resetResult();
+}
+
+function updateHint() {
+  const price = parseFloat(document.getElementById('priceInput').value);
+  document.getElementById('hintVal').textContent = isNaN(price) ? '— / L' : '$' + price.toFixed(3) + ' / L';
+}
+
+function clearAll() {
+  document.getElementById('mainInput').value = '';
+  resetResult();
+  closeSidebar();
+}
+
+// Load saved price on startup, fall back to default 1.789
+const _saved = localStorage.getItem('gasPricePerLitre');
+document.getElementById('priceInput').value = _saved !== null ? _saved : '1.789';
+updateHint();
+</script>
+</body>
+</html>
