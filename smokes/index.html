@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Smokes Count Shell</title>
+<link rel="icon" type="image/png" href="tobacco.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2333;
+    --border: #2a3045;
+    --accent: #4ade80;
+    --accent2: #facc15;
+    --accent3: #60a5fa;
+    --text: #e8eaf0;
+    --muted: #6b7591;
+    --header-bg: #b8d8f0;
+    --header-text: #1a2540;
+    --smokes-bg: #b8e8cc;
+    --smokes-text: #1a3a28;
+    --total-yellow: #facc15;
+    --total-yellow-text: #1a1500;
+    --radius: 6px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+    padding: 32px 16px 80px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 28px;
+    padding-right: 50px;
+  }
+
+  /* ── Hamburger Menu ── */
+  #menu-toggle {
+    position: fixed;
+    top: 18px;
+    right: 16px;
+    z-index: 200;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    touch-action: manipulation;
+  }
+  #menu-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+  #menu-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  #menu-toggle.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  #menu-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  #side-menu {
+    position: fixed;
+    top: 0; right: 0;
+    width: min(320px, 85vw);
+    height: 100vh;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 100;
+    padding: 80px 24px 40px;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #side-menu.open { transform: translateX(0); }
+
+  .menu-section {
+    padding: 20px 0;
+  }
+
+  .menu-section label {
+    display: block;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 10px;
+  }
+  .menu-section input {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.4rem;
+    font-family: 'DM Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .menu-section input:focus { border-color: var(--accent3); }
+
+  /* ── Menu Separator ── */
+  .menu-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+    flex-shrink: 0;
+  }
+
+  #menu-draft-btn {
+    background: transparent;
+    border: 1.5px solid var(--accent2);
+    color: var(--accent2);
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    width: 100%;
+    touch-action: manipulation;
+    transition: background 0.2s, color 0.2s;
+    margin-bottom: 10px;
+  }
+  #menu-draft-btn:hover, #menu-draft-btn:active { background: rgba(250,204,21,0.12); }
+
+  #clear-btn {
+    background: transparent;
+    border: 1.5px solid #ef4444;
+    color: #ef4444;
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    width: 100%;
+    touch-action: manipulation;
+    transition: background 0.2s, color 0.2s;
+  }
+  #clear-btn:hover, #clear-btn:active { background: #ef4444; color: #fff; }
+
+  /* ── Collapsible Menu Section ── */
+  .menu-collapsible { padding: 0; }
+  .menu-collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    cursor: pointer;
+    user-select: none;
+    touch-action: manipulation;
+    gap: 8px;
+  }
+  .menu-collapsible-header .col-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .menu-collapsible-header span.col-label {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    white-space: nowrap;
+  }
+  .draft-count-badge {
+    background: var(--accent2);
+    color: #1a1500;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 99px;
+    padding: 1px 7px;
+    line-height: 1.5;
+    display: none;
+  }
+  .draft-count-badge.visible { display: inline-block; }
+  .menu-collapsible-header .col-arrow {
+    font-size: 0.85rem;
+    color: var(--muted);
+    transition: transform 0.25s;
+    flex-shrink: 0;
+  }
+  .menu-collapsible-header.active .col-arrow { transform: rotate(180deg); }
+  .menu-collapsible-body {
+    display: none;
+    padding-bottom: 16px;
+  }
+  .menu-collapsible-body.open { display: block; }
+
+  /* ── Drafts ── */
+  .draft-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .draft-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .draft-item:hover { border-color: var(--accent2); background: #232a3a; }
+  .draft-item-info {
+    flex: 1;
+    min-width: 0;
+    pointer-events: none;
+  }
+  .draft-item-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--accent2);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .draft-item-time {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .draft-menu-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+    flex-shrink: 0;
+    line-height: 1;
+    touch-action: manipulation;
+  }
+  .draft-menu-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+
+  /* context menu popup */
+  .draft-ctx-menu {
+    position: fixed;
+    background: #1c2234;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+    z-index: 999;
+    min-width: 170px;
+    padding: 5px 0;
+    display: none;
+  }
+  .draft-ctx-menu.visible { display: block; }
+  .draft-ctx-item {
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    color: var(--text);
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    white-space: nowrap;
+  }
+  .draft-ctx-item:hover { background: rgba(255,255,255,0.07); }
+  .draft-ctx-item.danger { color: #f87171; }
+  .draft-ctx-item.danger:hover { background: rgba(239,68,68,0.12); }
+  .ctx-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 3px 0;
+  }
+
+  .drafts-empty {
+    font-size: 0.88rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 14px 0;
+    font-style: italic;
+  }
+  .drafts-limit-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .drafts-limit-text {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .drafts-limit-track {
+    flex: 1;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .drafts-limit-fill {
+    height: 100%;
+    background: var(--accent2);
+    border-radius: 99px;
+    transition: width 0.3s ease;
+  }
+
+  .drafts-delete-all-btn {
+    margin-top: 10px;
+    background: transparent;
+    border: 1.5px solid #ef4444;
+    color: #ef4444;
+    padding: 11px 16px;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    width: 100%;
+    touch-action: manipulation;
+    transition: background 0.2s, color 0.2s;
+  }
+  .drafts-delete-all-btn:hover, .drafts-delete-all-btn:active { background: #ef4444; color: #fff; }
+
+  /* ── Layout Changer ── */
+  .layout-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .layout-dim-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .layout-dim-wrap .layout-dim-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .layout-dim-input {
+    width: 58px;
+    padding: 10px 4px;
+    font-size: 1.3rem;
+    font-family: 'DM Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    outline: none;
+    text-align: center;
+    -webkit-appearance: none;
+    transition: border-color 0.2s;
+  }
+  .layout-dim-input:focus { border-color: var(--accent3); }
+  .layout-dim-input.error { border-color: #f87171; }
+  .layout-sep {
+    font-size: 1.3rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-top: 16px;
+  }
+  #apply-layout-btn {
+    background: var(--accent3);
+    color: #0a1020;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 11px 16px;
+    cursor: pointer;
+    width: 100%;
+    touch-action: manipulation;
+    transition: opacity 0.2s;
+  }
+  #apply-layout-btn:hover { opacity: 0.85; }
+  .layout-hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 8px;
+    text-align: center;
+  }
+  .layout-error {
+    font-size: 0.82rem;
+    color: #f87171;
+    margin-bottom: 8px;
+    display: none;
+  }
+
+  /* ── Main Layout ── */
+  .main-card {
+    max-width: 820px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── Table: horizontal scroll ── */
+  .table-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: visible;
+    width: 100%;
+  }
+
+  /* Desktop: table fills width, no scroll needed */
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    background: var(--header-bg);
+    color: var(--header-text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 10px 6px;
+    border: 1.5px solid #a8c8e8;
+    text-align: center;
+    white-space: nowrap;
+  }
+  thead th:last-child {
+    background: #2a3045;
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  tbody td {
+    border: 1px solid var(--border);
+    padding: 2px;
+    text-align: center;
+  }
+
+  tbody td input.cell-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 12px 2px;
+    transition: background 0.15s;
+    -webkit-appearance: none;
+  }
+  tbody td input.cell-input:focus { background: rgba(74,222,128,0.09); }
+
+  /* Row number label column */
+  .row-num-cell {
+    border: 1px solid var(--border);
+    padding: 3px 4px;
+    text-align: center;
+    background: var(--surface2);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    width: 24px;
+  }
+  thead th.row-num-head {
+    background: #1e2333;
+    color: var(--muted);
+    font-size: 0.75rem;
+    border-color: var(--border);
+    padding: 10px 4px;
+    width: 24px;
+  }
+
+  .total-cell {
+    background: var(--surface2);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 12px 6px;
+    white-space: nowrap;
+  }
+
+  /* Smokes footer row */
+  tfoot td {
+    border: 1px solid var(--border);
+    padding: 11px 8px;
+    text-align: center;
+  }
+  tfoot .smokes-label {
+    background: var(--smokes-bg);
+    color: var(--smokes-text);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  tfoot .smokes-total {
+    background: var(--total-yellow);
+    color: var(--total-yellow-text);
+    font-family: 'DM Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  tfoot .empty-cell { background: var(--surface2); }
+
+  /* ── Input Section ── */
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 420px) { .input-row { grid-template-columns: 1fr; } }
+
+  .input-group { display: flex; flex-direction: column; gap: 8px; }
+  .input-group label {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .input-group input {
+    padding: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.15rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .input-group input:focus { border-color: var(--accent2); }
+
+  /* ── Output Box ── */
+  .output-block {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+  .output-block .out-label {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 10px;
+  }
+  .output-block .out-value {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 500;
+    color: var(--accent2);
+    letter-spacing: 0.04em;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    display: block;
+  }
+
+  /* ── Final Count Block ── */
+  .final-block {
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 22px;
+    transition: opacity 0.3s;
+  }
+  .final-block.hidden { opacity: 0.3; }
+  .final-block .out-label {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .final-block .out-value {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(2rem, 8vw, 3rem);
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: block;
+  }
+
+  /* ── Outside (A) Block ── */
+  #outside-a-block .out-label { color: var(--accent3); }
+  #outside-a-block .out-value { color: var(--accent3); }
+
+  /* ── Standalone input-group on main page ── */
+  .main-card .input-group {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+  .main-card .input-group label {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #f87171;
+    margin-bottom: 10px;
+  }
+  .main-card .input-group input {
+    padding: 14px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: #f87171;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+  }
+  .main-card .input-group input:focus { border-color: #f87171; }
+
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+  }
+  .btn-row .action-btn { flex: 1; }
+
+  .action-btn {
+    padding: 14px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+    touch-action: manipulation;
+    transition: filter 0.18s, transform 0.1s;
+  }
+  .action-btn:active { transform: scale(0.97); }
+  .action-btn:hover { filter: brightness(1.12); }
+
+  .btn-final  { background: var(--accent);  color: #0a1a12; }
+  .btn-draft  { background: transparent; border: 1.5px solid var(--accent2); color: var(--accent2); }
+  .btn-draft:hover { background: rgba(250,204,21,0.1); filter: none; }
+  .btn-download { background: var(--accent3); color: #0a1020; }
+
+  /* overlay */
+  #overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 90;
+  }
+  #overlay.active { display: block; }
+
+  /* scroll hint */
+  .scroll-hint {
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+    display: none;
+  }
+  @media (max-width: 600px) { .scroll-hint { display: block; } }
+
+  @media (max-width: 600px) {
+    /* Break table out of body padding for full-width scroll */
+    .table-scroll-wrapper {
+      margin-left: -16px;
+      margin-right: -16px;
+      border-radius: 0;
+      width: calc(100% + 32px);
+    }
+    .table-wrap {
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+      width: max-content;
+      min-width: 100%;
+    }
+    /* Table expands to natural width and scrolls */
+    table {
+      width: max-content;
+      min-width: 100%;
+    }
+    /* Fixed cell size on mobile — comfortable tap target, not too wide */
+    tbody td input.cell-input {
+      min-width: 52px;
+      padding: 14px 4px;
+    }
+    .total-cell {
+      min-width: 56px;
+      padding: 14px 8px;
+    }
+  }
+
+  /* ── Toast ── */
+  #draft-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(70px);
+    background: #1a2a1a;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    padding: 11px 24px;
+    border-radius: 30px;
+    z-index: 400;
+    opacity: 0;
+    transition: transform 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.32s ease;
+    pointer-events: none;
+    max-width: calc(100vw - 32px);
+    text-align: center;
+  }
+  #draft-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ── In-menu Confirm Panel ── */
+  /* Overlays exactly the side-menu area, same size/position */
+  #in-menu-confirm {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(320px, 85vw);
+    height: 100vh;
+    background: rgba(12, 15, 22, 0.96);
+    z-index: 160;          /* above side-menu (100) contents, below toggle (200) */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+    backdrop-filter: blur(2px);
+  }
+  #in-menu-confirm.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+  #in-menu-confirm-card {
+    background: var(--surface2);
+    border: 1px solid #3a2020;
+    border-radius: 12px;
+    padding: 26px 22px 20px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  }
+  #in-menu-confirm-card h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #f87171;
+    margin-bottom: 8px;
+  }
+  #in-menu-confirm-card p {
+    font-size: 0.92rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.55;
+    word-break: break-word;
+  }
+  .in-menu-confirm-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .in-menu-confirm-actions button {
+    flex: 1;
+    padding: 12px 8px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.1s;
+    touch-action: manipulation;
+  }
+  .in-menu-confirm-actions button:hover { filter: brightness(1.1); }
+  .in-menu-confirm-actions button:active { transform: scale(0.97); }
+  #imc-yes { background: #ef4444; color: #fff; }
+  #imc-no  { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+  /* ── Export/Import Sub-page ── */
+  #ei-subpage {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: var(--surface);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    overflow-y: auto;
+  }
+  #ei-subpage.open { transform: translateX(0); }
+
+  .ei-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 72px 24px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .ei-back-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    touch-action: manipulation;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .ei-back-btn:hover { background: #232a3a; border-color: var(--accent3); }
+  .ei-header-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent2);
+  }
+
+  .ei-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+  }
+
+  .ei-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ei-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ei-card-desc {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .ei-btn {
+    padding: 13px 18px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    cursor: pointer;
+    width: 100%;
+    touch-action: manipulation;
+    transition: filter 0.18s, transform 0.1s;
+    margin-top: 4px;
+  }
+  .ei-btn:active { transform: scale(0.97); }
+  .ei-btn:hover  { filter: brightness(1.12); }
+  .ei-btn-export { background: var(--accent2); color: #1a1500; }
+  .ei-btn-import { background: var(--accent3); color: #0a1020; }
+  .ei-import-note {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  #ei-import-input { display: none; }
+</style>
+</head>
+<body>
+
+<button id="menu-toggle" onclick="toggleMenu()" aria-label="Open menu">
+  <span></span><span></span><span></span>
+</button>
+
+<!-- Draft context menu -->
+<div id="draft-ctx-menu" class="draft-ctx-menu" role="menu">
+  <div class="draft-ctx-item" role="menuitem" onclick="ctxLoad()">
+    <span aria-hidden="true">📂</span> Load Draft
+  </div>
+  <div class="draft-ctx-item" role="menuitem" onclick="ctxRename()">
+    <span aria-hidden="true">✏️</span> Rename
+  </div>
+  <div class="draft-ctx-item" role="menuitem" onclick="ctxExport()">
+    <span aria-hidden="true">⬇</span> Export as JSON
+  </div>
+  <div class="ctx-divider"></div>
+  <div class="draft-ctx-item danger" role="menuitem" onclick="ctxDelete()">
+    <span aria-hidden="true">🗑️</span> Delete Draft
+  </div>
+</div>
+
+<!-- In-menu confirmation panel (overlays the side menu area only) -->
+<div id="in-menu-confirm" role="dialog" aria-modal="true" aria-labelledby="imc-title">
+  <div id="in-menu-confirm-card">
+    <h3 id="imc-title">Confirm</h3>
+    <p id="imc-msg">Are you sure?</p>
+    <div class="in-menu-confirm-actions">
+      <button id="imc-yes" onclick="imcYes()">Yes, Delete</button>
+      <button id="imc-no"  onclick="imcNo()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="side-menu" role="navigation" aria-label="Settings menu">
+
+  <!-- ── Export / Import Sub-page ── -->
+  <div id="ei-subpage" aria-label="Import Drafts">
+    <div class="ei-header">
+      <button class="ei-back-btn" onclick="closeEISubpage()" aria-label="Back to menu">
+        ← Back
+      </button>
+      <span class="ei-header-title">Import Drafts</span>
+    </div>
+    <div class="ei-body">
+
+      <!-- Import card -->
+      <div class="ei-card">
+        <div class="ei-card-title">Import JSON</div>
+        <div class="ei-card-desc">
+          Load a previously exported draft JSON file.
+        </div>
+        <button class="ei-btn ei-btn-import" onclick="document.getElementById('ei-import-input').click()">
+          ⬆ Choose JSON File
+        </button>
+        <input type="file" id="ei-import-input" accept=".json,application/json" onchange="importDraftsJSON(event)">
+        <div class="ei-import-note">Only <code>.json</code> files exported from Smokes-Shell are accepted.</div>
+      </div>
+
+    </div>
+  </div>
+  <!-- ── End Sub-page ── -->
+  <div class="menu-section" style="padding-bottom:0;">
+    <button id="menu-draft-btn" onclick="saveDraft()">💾 Save as Draft</button>
+  </div>
+  <div class="menu-section">
+    <label for="inside-count">Inside Count</label>
+    <input type="number" id="inside-count" placeholder="Enter inside count"
+           oninput="calcFinal()" min="0" inputmode="numeric">
+  </div>
+  <div class="menu-section" style="padding-top:0;">
+    <button id="clear-btn" onclick="clearAll()">Clear All Fields</button>
+  </div>
+
+  <div class="menu-separator"></div>
+
+  <!-- View Your Drafts -->
+  <div class="menu-collapsible">
+    <div class="menu-collapsible-header" id="drafts-header" onclick="toggleCollapsible('drafts')"
+         role="button" aria-expanded="false" aria-controls="drafts-body">
+      <div class="col-title">
+        <span class="col-label">View Your Drafts</span>
+        <span class="draft-count-badge" id="draft-badge"></span>
+      </div>
+      <span class="col-arrow" aria-hidden="true">▼</span>
+    </div>
+    <div class="menu-collapsible-body" id="drafts-body">
+      <div class="drafts-limit-bar" id="drafts-limit-bar" style="display:none;">
+        <span class="drafts-limit-text" id="drafts-limit-text">0 / 8</span>
+        <div class="drafts-limit-track">
+          <div class="drafts-limit-fill" id="drafts-limit-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <!-- draft-list is populated entirely by renderDrafts() -->
+      <div class="draft-list" id="draft-list"></div>
+    </div>
+  </div>
+
+  <!-- Import Drafts -->
+  <div class="menu-collapsible">
+    <div class="menu-collapsible-header" onclick="openEISubpage()"
+         role="button" aria-label="Open Import Drafts">
+      <div class="col-title">
+        <span class="col-label">Import Drafts</span>
+      </div>
+      <span class="col-arrow" style="color:var(--muted);font-size:0.85rem;" aria-hidden="true">›</span>
+    </div>
+  </div>
+
+  <!-- Change Shelve Layout -->
+  <div class="menu-collapsible">
+    <div class="menu-collapsible-header" id="layout-header" onclick="toggleCollapsible('layout')"
+         role="button" aria-expanded="false" aria-controls="layout-body">
+      <div class="col-title">
+        <span class="col-label">Change Shelve Layout</span>
+      </div>
+      <span class="col-arrow" aria-hidden="true">▼</span>
+    </div>
+    <div class="menu-collapsible-body" id="layout-body">
+      <div class="layout-row">
+        <div class="layout-dim-wrap">
+          <span class="layout-dim-label">Rows</span>
+          <input type="number" class="layout-dim-input" id="layout-rows"
+                 min="1" max="10" value="7" inputmode="numeric"
+                 oninput="validateLayoutInput(this)" placeholder="7">
+        </div>
+        <span class="layout-sep">×</span>
+        <div class="layout-dim-wrap">
+          <span class="layout-dim-label">Shelves</span>
+          <input type="number" class="layout-dim-input" id="layout-cols"
+                 min="1" max="10" value="6" inputmode="numeric"
+                 oninput="validateLayoutInput(this)" placeholder="6">
+        </div>
+      </div>
+      <div class="layout-error" id="layout-error"></div>
+      <button id="apply-layout-btn" onclick="applyLayout()">Apply Layout</button>
+      <div class="layout-hint">Active: <span id="layout-current-label">7 Rows × 6 Shelves</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay" onclick="toggleMenu()"></div>
+<div id="draft-toast" role="status" aria-live="polite"></div>
+
+<div class="main-card">
+  <h1>Smokes Count Tracker</h1>
+
+  <div class="scroll-hint" aria-hidden="true">← swipe table to scroll →</div>
+
+  <div class="table-scroll-wrapper">
+    <div class="table-wrap">
+      <table id="shelf-table" aria-label="Shelf counts">
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+        <tfoot id="table-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label for="black-vuse">Black Vuse Box</label>
+      <input type="number" id="black-vuse" placeholder="0" min="0"
+             oninput="calcOutside()" inputmode="numeric">
+    </div>
+    <div class="input-group">
+      <label for="other-vape">Other Vape Box</label>
+      <input type="number" id="other-vape" placeholder="0" min="0"
+             oninput="calcOutside()" inputmode="numeric">
+    </div>
+  </div>
+
+  <div class="output-block" id="outside-a-block">
+    <div class="out-label">Outside (A)</div>
+    <span class="out-value" id="outside-a-count">0</span>
+  </div>
+
+  <div class="input-group">
+    <label for="sold-after">Smokes Sold after Count (B)</label>
+    <input type="number" id="sold-after" placeholder="0" min="0"
+           oninput="calcOutside()" inputmode="numeric">
+  </div>
+
+  <div class="output-block">
+    <div class="out-label">Outside Smokes Count (C=A-B)</div>
+    <span class="out-value" id="outside-count">0</span>
+  </div>
+
+  <button class="action-btn btn-final" onclick="calcFinal(true)">Calculate Final Count</button>
+
+  <div class="final-block hidden" id="final-block">
+    <div class="out-label">Final Smokes Count (IN+OUT)</div>
+    <span class="out-value" id="final-count">—</span>
+  </div>
+
+  <button class="action-btn btn-draft" onclick="saveDraft()">💾 Save as Draft</button>
+  <button class="action-btn btn-download" onclick="downloadPDF()">⬇ Download Smokes Count (PDF)</button>
+</div>
+
+<script>
+// ── State ──
+let ROWS = 7, COLS = 6;
+let drafts = [];
+let ctxTargetIdx = -1;
+let ctxMenuOpen = false;
+let pendingDeleteIdx = -1;
+let toastTimer = null;
+const MAX_DRAFTS = 8;
+
+// Safe localStorage read
+try {
+  drafts = JSON.parse(localStorage.getItem('smokesDrafts') || '[]');
+  if (!Array.isArray(drafts)) drafts = [];
+} catch(e) { drafts = []; }
+
+// ── Build Table ──
+function buildTable() {
+  const thead = document.getElementById('table-head');
+  const tbody = document.getElementById('table-body');
+  const tfoot = document.getElementById('table-foot');
+
+  // Head: row-num col + shelf cols + total col
+  thead.innerHTML = '';
+  const headTr = document.createElement('tr');
+  const thRowNum = document.createElement('th');
+  thRowNum.className = 'row-num-head';
+  thRowNum.textContent = '#';
+  headTr.appendChild(thRowNum);
+  for (let c = 0; c < COLS; c++) {
+    const th = document.createElement('th');
+    th.textContent = `Shelf ${c + 1}`;
+    headTr.appendChild(th);
+  }
+  const thTotal = document.createElement('th');
+  thTotal.textContent = 'Total';
+  headTr.appendChild(thTotal);
+  thead.appendChild(headTr);
+
+  // Body
+  tbody.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    const tr = document.createElement('tr');
+    const tdRowNum = document.createElement('td');
+    tdRowNum.className = 'row-num-cell';
+    tdRowNum.textContent = r + 1;
+    tr.appendChild(tdRowNum);
+    for (let c = 0; c < COLS; c++) {
+      const td = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'cell-input';
+      inp.min = '0';
+      inp.placeholder = '0';
+      inp.inputMode = 'numeric';
+      inp.dataset.row = r;
+      inp.dataset.col = c;
+      inp.setAttribute('aria-label', `Row ${r+1} Shelf ${c+1}`);
+      inp.addEventListener('input', () => calcRow(r));
+      td.appendChild(inp);
+      tr.appendChild(td);
+    }
+    const tdT = document.createElement('td');
+    tdT.className = 'total-cell';
+    tdT.id = `row-total-${r}`;
+    tdT.textContent = '0';
+    tr.appendChild(tdT);
+    tbody.appendChild(tr);
+  }
+
+  // Foot: row-num empty + (COLS-1) empty + smokes label + smokes total
+  tfoot.innerHTML = '';
+  const footTr = document.createElement('tr');
+  // row-num column spacer
+  const tdRN = document.createElement('td');
+  tdRN.className = 'empty-cell';
+  footTr.appendChild(tdRN);
+  for (let c = 0; c < COLS - 1; c++) {
+    const td = document.createElement('td');
+    td.className = 'empty-cell';
+    footTr.appendChild(td);
+  }
+  const tdLbl = document.createElement('td');
+  tdLbl.className = 'smokes-label';
+  tdLbl.textContent = 'Smokes';
+  footTr.appendChild(tdLbl);
+  const tdTot = document.createElement('td');
+  tdTot.className = 'smokes-total';
+  tdTot.id = 'smokes-total';
+  tdTot.textContent = '0';
+  footTr.appendChild(tdTot);
+  tfoot.appendChild(footTr);
+
+  // Sync layout UI
+  document.getElementById('layout-current-label').textContent = `${ROWS} Rows × ${COLS} Shelves`;
+  document.getElementById('layout-rows').value = ROWS;
+  document.getElementById('layout-cols').value = COLS;
+  document.getElementById('layout-rows').classList.remove('error');
+  document.getElementById('layout-cols').classList.remove('error');
+}
+
+// ── Calculations ──
+function getVal(el) { return parseFloat(el.value) || 0; }
+
+function calcRow(r) {
+  let sum = 0;
+  document.getElementById('table-body')
+    .querySelectorAll(`input[data-row="${r}"]`)
+    .forEach(i => sum += getVal(i));
+  document.getElementById(`row-total-${r}`).textContent = sum;
+  calcSmokes();
+}
+
+function calcSmokes() {
+  let total = 0;
+  for (let r = 0; r < ROWS; r++)
+    total += parseFloat(document.getElementById(`row-total-${r}`).textContent) || 0;
+  document.getElementById('smokes-total').textContent = total;
+  calcOutside();
+}
+
+function calcOutside() {
+  const smokes = parseFloat(document.getElementById('smokes-total').textContent) || 0;
+  const bv   = getVal(document.getElementById('black-vuse'));
+  const ov   = getVal(document.getElementById('other-vape'));
+  const sold = getVal(document.getElementById('sold-after'));
+  const outsideA = smokes + bv + ov;
+  document.getElementById('outside-a-count').textContent = outsideA;
+  document.getElementById('outside-count').textContent = outsideA - sold;
+  // Keep final up-to-date if already revealed
+  if (!document.getElementById('final-block').classList.contains('hidden')) {
+    calcFinal(false);
+  }
+}
+
+function calcFinal(fromButton) {
+  const outside = parseFloat(document.getElementById('outside-count').textContent) || 0;
+  const inside  = getVal(document.getElementById('inside-count'));
+  const result  = outside + inside;
+  const el      = document.getElementById('final-count');
+  el.textContent = result;
+  if (fromButton) {
+    document.getElementById('final-block').classList.remove('hidden');
+  }
+}
+
+// ── Menu ──
+function toggleMenu() {
+  const isOpen = document.getElementById('side-menu').classList.toggle('open');
+  document.getElementById('menu-toggle').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('active');
+  document.getElementById('menu-toggle').setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+  closeCtxMenu();
+}
+
+// ── Export / Import Sub-page ──
+function openEISubpage() {
+  document.getElementById('ei-subpage').classList.add('open');
+}
+function closeEISubpage() {
+  document.getElementById('ei-subpage').classList.remove('open');
+}
+
+function exportDraftsJSON() {
+  if (drafts.length === 0) {
+    showToast('⚠️ No drafts to export');
+    return;
+  }
+  const payload = JSON.stringify({ _type: 'smokes-shell-drafts', version: 1, drafts }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const now  = new Date();
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const mm   = String(now.getMonth()+1).padStart(2,'0');
+  const yyyy = now.getFullYear();
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `smokes-drafts-${dd}${mm}${yyyy}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✅ ${drafts.length} draft(s) exported`);
+}
+
+function importDraftsJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  // Reset input so same file can be re-imported if needed
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (parsed._type !== 'smokes-shell-drafts' || !Array.isArray(parsed.drafts)) {
+        showToast('❌ Invalid file — not a Smokes-Shell export');
+        return;
+      }
+      const now = new Date();
+      const dd  = String(now.getDate()).padStart(2,'0');
+      const mm  = String(now.getMonth()+1).padStart(2,'0');
+      const importPrefix = `imported-smoke-draft-${dd}${mm}-`;
+
+      // Find the highest existing n for today's import prefix
+      const existingImportNums = drafts
+        .filter(d => d.name && d.name.startsWith(importPrefix))
+        .map(d => parseInt(d.name.replace(importPrefix, '')) || 0);
+      let nextN = existingImportNums.length ? Math.max(...existingImportNums) + 1 : 1;
+
+      const incoming = parsed.drafts;
+      let added = 0, skipped = 0;
+      incoming.forEach(d => {
+        if (!d.state) { skipped++; return; }
+        // Always assign a fresh import name — no duplicate-name check needed
+        const importedDraft = {
+          name:    importPrefix + nextN,
+          savedAt: getDraftTimestamp(),
+          state:   d.state,
+        };
+        drafts.push(importedDraft);
+        nextN++;
+        added++;
+      });
+      // Trim to MAX_DRAFTS keeping newest
+      while (drafts.length > MAX_DRAFTS) drafts.shift();
+      persistDrafts();
+      renderDrafts();
+      const msg = added > 0
+        ? `✅ ${added} draft(s) imported${skipped ? `, ${skipped} skipped` : ''}`
+        : `⚠️ No drafts found in file`;
+      showToast(msg);
+    } catch(err) {
+      showToast('❌ Could not read file — invalid JSON');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Clear ──
+function clearAll() {
+  showInMenuConfirm(
+    'Clear All Fields?',
+    'All shelf values and inputs will be reset. This cannot be undone.',
+    'Clear', 'Cancel',
+    doClearAll
+  );
+}
+function doClearAll() {
+  document.querySelectorAll('.cell-input').forEach(i => i.value = '');
+  for (let r = 0; r < ROWS; r++) {
+    const el = document.getElementById(`row-total-${r}`);
+    if (el) el.textContent = '0';
+  }
+  document.getElementById('smokes-total').textContent = '0';
+  ['black-vuse','other-vape','inside-count','sold-after']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('outside-count').textContent = '0';
+  document.getElementById('outside-a-count').textContent = '0';
+  document.getElementById('final-count').textContent = '—';
+  document.getElementById('final-block').classList.add('hidden');
+}
+
+// ── Collapsible ──
+function toggleCollapsible(key) {
+  const header = document.getElementById(`${key}-header`);
+  const body   = document.getElementById(`${key}-body`);
+  const isNowOpen = !body.classList.contains('open');
+  header.classList.toggle('active');
+  body.classList.toggle('open');
+  header.setAttribute('aria-expanded', isNowOpen);
+}
+
+// ── Layout Validation ──
+function validateLayoutInput(input) {
+  const errEl = document.getElementById('layout-error');
+  const val = parseInt(input.value);
+  let err = '';
+  if (isNaN(val) || val < 1) {
+    input.classList.add('error');
+    err = 'Minimum is 1 row / shelf.';
+  } else if (val > 10) {
+    input.classList.add('error');
+    err = 'Maximum is 10 rows and 10 shelves.';
+  } else {
+    input.classList.remove('error');
+  }
+  errEl.textContent = err;
+  errEl.style.display = err ? 'block' : 'none';
+}
+
+function applyLayout() {
+  const rInput = document.getElementById('layout-rows');
+  const cInput = document.getElementById('layout-cols');
+  const errEl  = document.getElementById('layout-error');
+
+  let r = parseInt(rInput.value);
+  let c = parseInt(cInput.value);
+
+  // Clamp silently
+  if (isNaN(r) || r < 1)  r = 1;
+  if (isNaN(c) || c < 1)  c = 1;
+  if (r > 10) r = 10;
+  if (c > 10) c = 10;
+
+  rInput.value = r;
+  cInput.value = c;
+  rInput.classList.remove('error');
+  cInput.classList.remove('error');
+  errEl.style.display = 'none';
+
+  if (r === ROWS && c === COLS) {
+    showToast('Layout is already ' + r + '×' + c);
+    return;
+  }
+
+  ROWS = r;
+  COLS = c;
+  buildTable();
+  calcSmokes();
+  showToast(`Layout changed to ${ROWS} Rows × ${COLS} Shelves`);
+}
+
+// ── Drafts ──
+function getDraftName(n) {
+  const now = new Date();
+  const dd  = String(now.getDate()).padStart(2,'0');
+  const mm  = String(now.getMonth()+1).padStart(2,'0');
+  return `smoke-draft-${dd}${mm}-${n}`;
+}
+
+function getDraftTimestamp() {
+  const now  = new Date();
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const mm   = String(now.getMonth()+1).padStart(2,'0');
+  const yyyy = now.getFullYear();
+  const HH   = String(now.getHours()).padStart(2,'0');
+  const MN   = String(now.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm}/${yyyy} ${HH}:${MN}`;
+}
+
+function captureState() {
+  const cells = {};
+  document.querySelectorAll('.cell-input').forEach(inp => {
+    cells[`${inp.dataset.row}-${inp.dataset.col}`] = inp.value;
+  });
+  return {
+    rows: ROWS,
+    cols: COLS,
+    cells,
+    insideCount: document.getElementById('inside-count').value,
+    soldAfter:   document.getElementById('sold-after').value,
+    blackVuse:   document.getElementById('black-vuse').value,
+    otherVape:   document.getElementById('other-vape').value,
+    finalVisible: !document.getElementById('final-block').classList.contains('hidden'),
+  };
+}
+
+function saveDraft() {
+  // Draft number: always max existing n for today + 1
+  const now = new Date();
+  const dd  = String(now.getDate()).padStart(2,'0');
+  const mm  = String(now.getMonth()+1).padStart(2,'0');
+  const todayPrefix = `smoke-draft-${dd}${mm}-`;
+
+  // Collect all n-values from today's surviving drafts
+  const todayNums = drafts
+    .filter(d => d.name && d.name.startsWith(todayPrefix))
+    .map(d => parseInt(d.name.replace(todayPrefix,'')) || 0);
+  const n = todayNums.length ? Math.max(...todayNums) + 1 : 1;
+
+  const draft = {
+    name:    getDraftName(n),
+    savedAt: getDraftTimestamp(),
+    state:   captureState(),
+  };
+
+  drafts.push(draft);
+  if (drafts.length > MAX_DRAFTS) {
+    drafts.shift(); // FIFO: remove oldest
+  }
+
+  persistDrafts();
+  renderDrafts();
+  showToast(`💾 "${draft.name}" saved`);
+}
+
+function loadDraft(idx) {
+  const draft = drafts[idx];
+  if (!draft) return;
+  const state = draft.state;
+
+  // Apply layout if different
+  if (state.rows !== ROWS || state.cols !== COLS) {
+    ROWS = state.rows || ROWS;
+    COLS = state.cols || COLS;
+    buildTable();
+  }
+
+  // Fill shelf cells
+  document.querySelectorAll('.cell-input').forEach(inp => {
+    const key = `${inp.dataset.row}-${inp.dataset.col}`;
+    inp.value = (state.cells && state.cells[key]) ? state.cells[key] : '';
+  });
+
+  // Fill menu inputs
+  document.getElementById('inside-count').value = state.insideCount || '';
+  document.getElementById('sold-after').value   = state.soldAfter   || '';
+  document.getElementById('black-vuse').value   = state.blackVuse   || '';
+  document.getElementById('other-vape').value   = state.otherVape   || '';
+
+  // Recalculate
+  for (let r = 0; r < ROWS; r++) calcRow(r);
+
+  // Restore final visibility
+  if (state.finalVisible) {
+    calcFinal(true);  // reveals final block
+  } else {
+    document.getElementById('final-block').classList.add('hidden');
+    document.getElementById('final-count').textContent = '—';
+  }
+
+  closeCtxMenu();
+  showToast(`📂 "${draft.name}" loaded`);
+}
+
+function deleteDraft(idx) {
+  const name = drafts[idx] ? drafts[idx].name : '';
+  drafts.splice(idx, 1);
+  persistDrafts();
+  renderDrafts();
+  if (name) showToast(`🗑️ "${name}" deleted`);
+}
+
+function deleteAllDrafts() {
+  if (drafts.length === 0) return;
+  const count = drafts.length;
+  showInMenuConfirm(
+    'Delete All Drafts?',
+    `This will permanently delete all ${count} draft${count > 1 ? 's' : ''}. This cannot be undone.`,
+    'Yes, Delete All', 'Cancel',
+    () => {
+      drafts = [];
+      persistDrafts();
+      renderDrafts();
+      showToast(`🗑️ All ${count} draft${count > 1 ? 's' : ''} deleted`);
+    }
+  );
+}
+
+function renameDraft(idx) {
+  const draft = drafts[idx];
+  if (!draft) return;
+  const newName = prompt('Rename draft:', draft.name);
+  if (newName !== null && newName.trim()) {
+    draft.name = newName.trim().substring(0, 40);
+    persistDrafts();
+    renderDrafts();
+    showToast(`✏️ Draft renamed`);
+  }
+  closeCtxMenu();
+}
+
+function persistDrafts() {
+  try {
+    localStorage.setItem('smokesDrafts', JSON.stringify(drafts));
+  } catch(e) {
+    showToast('⚠️ Could not save — storage full');
+  }
+}
+
+function renderDrafts() {
+  const list  = document.getElementById('draft-list');
+  const badge = document.getElementById('draft-badge');
+  const limitBar  = document.getElementById('drafts-limit-bar');
+  const limitText = document.getElementById('drafts-limit-text');
+  const limitFill = document.getElementById('drafts-limit-fill');
+
+  list.innerHTML = '';
+
+  // Badge on header
+  if (drafts.length > 0) {
+    badge.textContent = `${drafts.length}/${MAX_DRAFTS}`;
+    badge.classList.add('visible');
+    limitBar.style.display  = 'flex';
+    limitText.textContent   = `${drafts.length} / ${MAX_DRAFTS} drafts`;
+    limitFill.style.width   = `${(drafts.length / MAX_DRAFTS) * 100}%`;
+  } else {
+    badge.classList.remove('visible');
+    limitBar.style.display = 'none';
+  }
+
+  if (drafts.length === 0) {
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'drafts-empty';
+    emptyEl.textContent = 'No drafts saved yet.';
+    list.appendChild(emptyEl);
+    return;
+  }
+
+  // Render newest first (reverse order display)
+  [...drafts].reverse().forEach((draft, revIdx) => {
+    const idx = drafts.length - 1 - revIdx; // real index in drafts array
+
+    const item = document.createElement('div');
+    item.className = 'draft-item';
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
+    item.onclick = (e) => {
+      if (!e.target.closest('.draft-menu-btn')) loadDraft(idx);
+    };
+    item.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loadDraft(idx); }
+    };
+
+    const info = document.createElement('div');
+    info.className = 'draft-item-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'draft-item-name';
+    nameEl.textContent = draft.name;
+
+    const timeEl = document.createElement('div');
+    timeEl.className = 'draft-item-time';
+    const layoutStr = draft.state ? `${draft.state.rows}×${draft.state.cols}` : '';
+    timeEl.textContent = draft.savedAt + (layoutStr ? ` · ${layoutStr}` : '');
+
+    info.appendChild(nameEl);
+    info.appendChild(timeEl);
+
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'draft-menu-btn';
+    menuBtn.title = 'Draft options';
+    menuBtn.setAttribute('aria-label', `Options for ${draft.name}`);
+    menuBtn.innerHTML = '&#8942;';
+    menuBtn.onclick = (e) => {
+      e.stopPropagation();
+      openCtxMenu(e, idx);
+    };
+
+    item.appendChild(info);
+    item.appendChild(menuBtn);
+    list.appendChild(item);
+  });
+
+  // Delete All button — only shown when there are drafts
+  const delAllBtn = document.createElement('button');
+  delAllBtn.className = 'drafts-delete-all-btn';
+  delAllBtn.textContent = '🗑️ Delete All Drafts';
+  delAllBtn.onclick = deleteAllDrafts;
+  list.appendChild(delAllBtn);
+}
+
+// ── Context Menu ──
+function openCtxMenu(e, idx) {
+  ctxTargetIdx = idx;
+  const menu = document.getElementById('draft-ctx-menu');
+  menu.classList.add('visible');
+  ctxMenuOpen = true;
+
+  const btn  = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+
+  // Determine position: prefer left of button, else right
+  let top  = rect.bottom + 4;
+  let left = rect.right - 170; // align right edge
+
+  if (left < 8) left = 8;
+  if (left + 170 > window.innerWidth - 8) left = window.innerWidth - 178;
+  if (top + 150 > window.innerHeight - 8) top = rect.top - 154;
+
+  menu.style.top  = `${top}px`;
+  menu.style.left = `${left}px`;
+  menu.querySelector('.draft-ctx-item').focus();
+}
+
+function closeCtxMenu() {
+  document.getElementById('draft-ctx-menu').classList.remove('visible');
+  ctxMenuOpen    = false;
+  ctxTargetIdx   = -1;
+}
+
+function ctxLoad()   { if (ctxTargetIdx >= 0) loadDraft(ctxTargetIdx); }
+function ctxRename() { if (ctxTargetIdx >= 0) renameDraft(ctxTargetIdx); }
+function ctxExport() {
+  if (ctxTargetIdx < 0) return;
+  const draft = drafts[ctxTargetIdx];
+  if (!draft) return;
+  closeCtxMenu();
+  const payload = JSON.stringify({ _type: 'smokes-shell-drafts', version: 1, drafts: [draft] }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const now  = new Date();
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const mm   = String(now.getMonth()+1).padStart(2,'0');
+  const yyyy = now.getFullYear();
+  const safeName = draft.name.replace(/[^a-z0-9_\-]/gi, '-').substring(0, 40);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${safeName}-${dd}${mm}${yyyy}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`⬇ "${draft.name}" exported`);
+}
+function ctxDelete() {
+  if (ctxTargetIdx < 0) return;
+  pendingDeleteIdx = ctxTargetIdx;
+  closeCtxMenu();
+  const name = drafts[pendingDeleteIdx] ? `"${drafts[pendingDeleteIdx].name}"` : 'this draft';
+  showInMenuConfirm(
+    'Delete Draft?',
+    `Delete ${name}? This cannot be undone.`,
+    'Yes, Delete', 'Cancel',
+    () => {
+      if (pendingDeleteIdx >= 0) {
+        deleteDraft(pendingDeleteIdx);
+        pendingDeleteIdx = -1;
+      }
+    }
+  );
+}
+
+document.addEventListener('click', (e) => {
+  if (ctxMenuOpen
+    && !e.target.closest('#draft-ctx-menu')
+    && !e.target.closest('.draft-menu-btn')) {
+    closeCtxMenu();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeCtxMenu();
+    closeInMenuConfirm();
+  }
+});
+
+// ── In-Menu Confirm Panel ──
+let imcCallback = null;
+
+function showInMenuConfirm(title, msg, yesLabel, noLabel, onYes) {
+  imcCallback = onYes;
+  document.getElementById('imc-title').textContent  = title;
+  document.getElementById('imc-msg').textContent    = msg;
+  document.getElementById('imc-yes').textContent    = yesLabel;
+  document.getElementById('imc-no').textContent     = noLabel;
+  // Ensure the side menu is open so the panel is visible
+  document.getElementById('side-menu').classList.add('open');
+  document.getElementById('menu-toggle').classList.add('open');
+  document.getElementById('overlay').classList.add('active');
+  document.getElementById('in-menu-confirm').classList.add('active');
+  document.getElementById('imc-no').focus();
+}
+
+function closeInMenuConfirm() {
+  document.getElementById('in-menu-confirm').classList.remove('active');
+  imcCallback = null;
+}
+
+function imcYes() {
+  const cb = imcCallback;
+  closeInMenuConfirm();
+  if (typeof cb === 'function') cb();
+}
+
+function imcNo() {
+  closeInMenuConfirm();
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const toast = document.getElementById('draft-toast');
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.textContent = msg;
+  toast.classList.add('show');
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+    toastTimer = null;
+  }, 2800);
+}
+
+// ── PDF Export ──
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const now  = new Date();
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const mm   = String(now.getMonth()+1).padStart(2,'0');
+  const yyyy = now.getFullYear();
+  const HH   = String(now.getHours()).padStart(2,'0');
+  const MN   = String(now.getMinutes()).padStart(2,'0');
+  const SS   = String(now.getSeconds()).padStart(2,'0');
+  const monthNames = ['January','February','March','April','May','June','July',
+                      'August','September','October','November','December'];
+  const monthName = monthNames[now.getMonth()];
+  const dateStr   = `${dd}-${mm}-${yyyy}`;
+  const timeStr   = `${HH}:${MN}:${SS}`;
+  const filename  = `SmokesCount-${dd}-${monthName}.pdf`;
+
+  const margin = 16;
+  let y = 20;
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(20, 40, 80);
+  doc.text('Smokes Count', margin, y);
+  y += 9;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 110, 140);
+  doc.text(`Time: ${timeStr}   Date: ${dateStr}   Layout: ${ROWS}R × ${COLS}S`, margin, y);
+  y += 8;
+
+  doc.setDrawColor(180, 190, 220);
+  doc.line(margin, y, 210 - margin, y);
+  y += 8;
+
+  // Dynamic table — fit within page width
+  const usableW  = 210 - 2 * margin;   // 178mm
+  const numCols  = COLS + 1;            // data cols + total col
+  const colW     = Math.floor(usableW / numCols);
+  const totalW   = usableW - colW * COLS; // give remaining to total col
+  const startX   = margin;
+  const colWidths = Array(COLS).fill(colW).concat([totalW]);
+  const tableW    = colWidths.reduce((a,b)=>a+b,0);
+
+  // Header row
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  let xPos = startX;
+  for (let c = 0; c < COLS; c++) {
+    doc.setFillColor(184, 216, 240);
+    doc.setTextColor(26, 37, 64);
+    doc.rect(xPos, y, colW, 9, 'F');
+    doc.setDrawColor(168, 200, 232);
+    doc.rect(xPos, y, colW, 9, 'S');
+    // Clip label for narrow columns
+    const label = COLS <= 7 ? `Shelf ${c+1}` : `S${c+1}`;
+    doc.text(label, xPos + colW/2, y + 6, { align: 'center' });
+    xPos += colW;
+  }
+  doc.setFillColor(42, 48, 69);
+  doc.setTextColor(220, 225, 240);
+  doc.rect(xPos, y, totalW, 9, 'F');
+  doc.setDrawColor(168, 200, 232);
+  doc.rect(xPos, y, totalW, 9, 'S');
+  doc.text('Total', xPos + totalW/2, y + 6, { align: 'center' });
+  y += 9;
+
+  // Data rows
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  for (let r = 0; r < ROWS; r++) {
+    xPos = startX;
+    const rowTotal = document.getElementById(`row-total-${r}`).textContent;
+    const rowBg = r % 2 === 0 ? [245,247,252] : [255,255,255];
+    doc.setFillColor(...rowBg);
+    doc.rect(startX, y, tableW, 8, 'F');
+    doc.setDrawColor(200,205,220);
+    for (let c = 0; c < COLS; c++) {
+      const inp = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+      const val = inp ? (inp.value || '0') : '0';
+      doc.setTextColor(40, 40, 60);
+      doc.rect(xPos, y, colWidths[c], 8, 'S');
+      doc.text(val, xPos + colWidths[c]/2, y + 5.5, { align: 'center' });
+      xPos += colWidths[c];
+    }
+    doc.setFillColor(234, 240, 255);
+    doc.rect(xPos, y, totalW, 8, 'F');
+    doc.setDrawColor(160,180,220);
+    doc.rect(xPos, y, totalW, 8, 'S');
+    doc.setTextColor(40, 80, 200);
+    doc.text(rowTotal, xPos + totalW/2, y + 5.5, { align: 'center' });
+    y += 8;
+  }
+
+  // Smokes footer
+  const smokesTotal = document.getElementById('smokes-total').textContent;
+  xPos = startX;
+  doc.setDrawColor(200,205,220);
+  for (let c = 0; c < COLS - 1; c++) {
+    doc.setFillColor(235,237,245);
+    doc.rect(xPos, y, colWidths[c], 9, 'F');
+    doc.rect(xPos, y, colWidths[c], 9, 'S');
+    xPos += colWidths[c];
+  }
+  doc.setFillColor(184, 232, 204);
+  doc.rect(xPos, y, colWidths[COLS-1], 9, 'F');
+  doc.rect(xPos, y, colWidths[COLS-1], 9, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(26, 58, 40);
+  doc.text('Smokes', xPos + colWidths[COLS-1]/2, y + 6, { align: 'center' });
+  xPos += colWidths[COLS-1];
+  doc.setFillColor(250, 204, 21);
+  doc.rect(xPos, y, totalW, 9, 'F');
+  doc.rect(xPos, y, totalW, 9, 'S');
+  doc.setTextColor(40, 30, 0);
+  doc.text(smokesTotal, xPos + totalW/2, y + 6, { align: 'center' });
+  y += 9 + 7;
+
+  // Info section — safe fullValW clamping
+  const bv       = document.getElementById('black-vuse').value  || '0';
+  const ov       = document.getElementById('other-vape').value  || '0';
+  const outsideA = document.getElementById('outside-a-count').textContent;
+  const soldAfter= document.getElementById('sold-after').value  || '0';
+  const outside  = document.getElementById('outside-count').textContent;
+  const inside   = document.getElementById('inside-count').value || '0';
+  const finalVal = document.getElementById('final-count').textContent;
+
+  const fullLabelW = Math.min(95, tableW * 0.55);
+  const fullValW   = Math.max(30, tableW - fullLabelW);
+  const rowH = 11;
+  const cellPad = 3.5;
+
+  function drawInfoRow(label, value, labelBg, labelFg, valBg, valFg, borderClr) {
+    doc.setFillColor(...labelBg);
+    doc.rect(startX, y, fullLabelW, rowH, 'F');
+    doc.setDrawColor(...borderClr);
+    doc.rect(startX, y, fullLabelW, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...labelFg);
+    doc.text(label, startX + 4, y + cellPad + 3.5);
+    doc.setFillColor(...valBg);
+    doc.rect(startX + fullLabelW, y, fullValW, rowH, 'F');
+    doc.setDrawColor(...borderClr);
+    doc.rect(startX + fullLabelW, y, fullValW, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...valFg);
+    doc.text(String(value), startX + fullLabelW + fullValW/2, y + cellPad + 3.8, { align: 'center' });
+    y += rowH + 4;
+  }
+
+  function drawSideBySide(label1, val1, bg1, fg1, label2, val2, bg2, fg2) {
+    const borderC = [180, 190, 215];
+    const gap     = 4;
+    const blockW  = Math.max(30, (tableW - gap) / 2);
+    const bLW     = Math.min(46, blockW * 0.58);
+    const bVW     = blockW - bLW;
+
+    doc.setFillColor(235, 237, 248);
+    doc.rect(startX, y, bLW, rowH, 'F');
+    doc.setDrawColor(...borderC);
+    doc.rect(startX, y, bLW, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 80);
+    doc.text(label1, startX + 3, y + cellPad + 3.2);
+    doc.setFillColor(...bg1);
+    doc.rect(startX + bLW, y, bVW, rowH, 'F');
+    doc.rect(startX + bLW, y, bVW, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...fg1);
+    doc.text(String(val1), startX + bLW + bVW/2, y + cellPad + 3.8, { align: 'center' });
+
+    const rx = startX + blockW + gap;
+    doc.setFillColor(235, 237, 248);
+    doc.rect(rx, y, bLW, rowH, 'F');
+    doc.setDrawColor(...borderC);
+    doc.rect(rx, y, bLW, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 80);
+    doc.text(label2, rx + 3, y + cellPad + 3.2);
+    doc.setFillColor(...bg2);
+    doc.rect(rx + bLW, y, bVW, rowH, 'F');
+    doc.rect(rx + bLW, y, bVW, rowH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...fg2);
+    doc.text(String(val2), rx + bLW + bVW/2, y + cellPad + 3.8, { align: 'center' });
+    y += rowH + 4;
+  }
+
+  const borderStd = [190, 195, 215];
+
+  drawSideBySide('Black Vuse Box', bv, [250,204,21],[80,50,0],
+                 'Other Vape Box', ov, [184,216,240],[10,40,140]);
+
+  drawInfoRow('Outside (A)', outsideA,
+    [220,235,255],[10,40,160],[184,216,240],[10,40,180], borderStd);
+
+  drawInfoRow('Smokes Sold after Count (B)', soldAfter,
+    [255,230,230],[120,30,30],[255,180,180],[100,20,20], borderStd);
+
+  drawInfoRow('Outside Smokes Count (C=A-B)', outside,
+    [255,245,210],[130,80,0],[255,237,150],[100,55,0], borderStd);
+
+  drawInfoRow('Inside Count', inside,
+    [220,232,250],[30,40,120],[184,216,240],[10,40,160], borderStd);
+
+  // Final count — prominent row
+  y += 3;
+  const finalRowH = 22;
+  doc.setFillColor(200, 245, 218);
+  doc.rect(startX, y, fullLabelW, finalRowH, 'F');
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(1.0);
+  doc.rect(startX, y, fullLabelW, finalRowH, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(10, 100, 40);
+  doc.text('Final Smokes Count (IN+OUT)', startX + 4, y + finalRowH/2 + 2);
+  doc.setFillColor(140, 235, 180);
+  doc.setDrawColor(0, 0, 0);
+  doc.rect(startX + fullLabelW, y, fullValW, finalRowH, 'F');
+  doc.rect(startX + fullLabelW, y, fullValW, finalRowH, 'S');
+  doc.setLineWidth(0.2);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(10, 80, 35);
+  const capH = 16 * 0.352 * 0.72;
+  doc.text(String(finalVal), startX + fullLabelW + fullValW/2, y + finalRowH/2 + capH/2, { align: 'center' });
+
+  doc.save(filename);
+}
+
+// ── Init ──
+buildTable();
+renderDrafts();
+</script>
+</body>
+</html>
