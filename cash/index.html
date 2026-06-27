@@ -395,6 +395,20 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
+  /* ─── DRAFT ZONE (empty grid slot — invisible tap target) ─── */
+  .draft-zone {
+    background: transparent;
+    border: none;
+    border-radius: var(--radius);
+    cursor: default;
+    min-height: 88px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .draft-zone-icon,
+  .draft-zone-label { display: none; }
+
   @media (max-width: 360px) {
     .currency-label { font-size: 19px; }
     .currency-input { font-size: 16px; }
@@ -506,6 +520,10 @@
         <div class="currency-label">$2</div>
         <input class="currency-input" type="number" min="0" step="1" placeholder="0" id="c2">
       </div>
+      <div class="draft-zone" id="draftZoneCoins" title="Double-tap to save draft">
+        <div class="draft-zone-icon">💾</div>
+        <div class="draft-zone-label">Save<br>Draft</div>
+      </div>
     </div>
   </div>
 
@@ -531,6 +549,10 @@
       <div class="currency-card note">
         <div class="currency-label">$100</div>
         <input class="currency-input" type="number" min="0" step="1" placeholder="0" id="n100">
+      </div>
+      <div class="draft-zone" id="draftZoneNotes" title="Double-tap to save draft">
+        <div class="draft-zone-icon">💾</div>
+        <div class="draft-zone-label">Save<br>Draft</div>
       </div>
     </div>
   </div>
@@ -808,28 +830,47 @@ function saveCurrentAsDraft(silent) {
 
 document.getElementById('sbSaveDraftBtn').addEventListener('click', saveCurrentAsDraft);
 
-// ── DOUBLE-TAP ON BRAND TO SAVE DRAFT ──
+// ── DOUBLE-TAP → SAVE DRAFT (brand + empty zones) ──
 (function() {
-  var lastTapTime = 0;
-  var brand = document.getElementById('brandReset');
+  var DOUBLE_TAP_MS = 350;
 
-  brand.addEventListener('touchstart', function(e) {
-    var now = Date.now();
-    if (now - lastTapTime < 350) {
+  function makeDraftTapTarget(el) {
+    var lastTap = 0;
+    var tapTimer = null;
+
+    el.addEventListener('touchend', function(e) {
+      var now = Date.now();
+      var gap = now - lastTap;
+
+      if (tapTimer) {
+        clearTimeout(tapTimer);
+        tapTimer = null;
+      }
+
+      if (gap < DOUBLE_TAP_MS && gap > 0) {
+        // Double-tap confirmed
+        e.preventDefault();
+        e.stopPropagation();
+        lastTap = 0;
+
+        saveCurrentAsDraft(true);
+      } else {
+        lastTap = now;
+        // Single tap: set timer so it doesn't accidentally fire
+        tapTimer = setTimeout(function() { lastTap = 0; }, DOUBLE_TAP_MS);
+      }
+    }, { passive: false });
+
+    // Desktop fallback
+    el.addEventListener('dblclick', function(e) {
       e.preventDefault();
-      e.stopPropagation();
       saveCurrentAsDraft(true);
-      lastTapTime = 0;
-    } else {
-      lastTapTime = now;
-    }
-  }, { passive: false });
+    });
+  }
 
-  // Desktop fallback
-  brand.addEventListener('dblclick', function(e) {
-    e.preventDefault();
-    saveCurrentAsDraft(true);
-  });
+  makeDraftTapTarget(document.getElementById('brandReset'));
+  makeDraftTapTarget(document.getElementById('draftZoneCoins'));
+  makeDraftTapTarget(document.getElementById('draftZoneNotes'));
 })();
 
 // ── APPLY DRAFT ──
