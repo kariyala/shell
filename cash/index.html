@@ -472,11 +472,11 @@
 </div>
 
 <header>
-  <a class="brand" id="brandReset" href="https://kariyala.github.io/shell/cash/" title="Shell Cash">
+  <div class="brand" id="brandReset" title="Double-tap to save draft">
     <img src="dollar-silver.png" alt="" class="brand-icon">
     <span class="brand-name">Shell Cash</span>
     <span class="brand-sub">Counter</span>
-  </a>
+  </div>
   <button class="menu-btn" id="menuBtn" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
@@ -541,15 +541,6 @@
     <div class="result-label">Total Cash</div>
     <div class="result-value zero" id="resultValue">$0.00</div>
   </div>
-
-  <button class="draft-btn" id="saveDraftBtn">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-      <polyline points="17,21 17,13 7,13 7,21"/>
-      <polyline points="7,3 7,8 15,8"/>
-    </svg>
-    Save as Draft
-  </button>
 
   <button class="print-btn" id="printBtn">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -781,7 +772,7 @@ sidebar.addEventListener('click', function(e) {
 });
 
 // ── SAVE DRAFT ──
-function saveCurrentAsDraft() {
+function saveCurrentAsDraft(silent) {
   var counts = {};
   currencies.forEach(function(c) {
     counts[c.id] = parseInt(document.getElementById(c.id).value) || 0;
@@ -803,18 +794,43 @@ function saveCurrentAsDraft() {
   if (drafts.length > MAX_DRAFTS) drafts.pop();
   storeDrafts(drafts);
 
-  // open sidebar + expand drafts panel
-  openSidebar();
-  if (!draftsPanel.classList.contains('open')) {
-    draftsPanel.classList.add('open');
-    draftsChev.classList.add('flipped');
+  if (!silent) {
+    // open sidebar + expand drafts panel
+    openSidebar();
+    if (!draftsPanel.classList.contains('open')) {
+      draftsPanel.classList.add('open');
+      draftsChev.classList.add('flipped');
+    }
   }
 
   showToast('Saved: ' + name);
 }
 
-document.getElementById('saveDraftBtn').addEventListener('click', saveCurrentAsDraft);
 document.getElementById('sbSaveDraftBtn').addEventListener('click', saveCurrentAsDraft);
+
+// ── DOUBLE-TAP ON BRAND TO SAVE DRAFT ──
+(function() {
+  var lastTapTime = 0;
+  var brand = document.getElementById('brandReset');
+
+  brand.addEventListener('touchstart', function(e) {
+    var now = Date.now();
+    if (now - lastTapTime < 350) {
+      e.preventDefault();
+      e.stopPropagation();
+      saveCurrentAsDraft(true);
+      lastTapTime = 0;
+    } else {
+      lastTapTime = now;
+    }
+  }, { passive: false });
+
+  // Desktop fallback
+  brand.addEventListener('dblclick', function(e) {
+    e.preventDefault();
+    saveCurrentAsDraft(true);
+  });
+})();
 
 // ── APPLY DRAFT ──
 function applyDraft(idx) {
